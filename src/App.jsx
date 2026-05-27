@@ -730,11 +730,19 @@ export default function App() {
 
       {/* Topbar */}
       <div style={S.topbar}>
-        <div>
+        <div style={{flex:1}}>
           <div style={{fontSize:15,fontWeight:700}}>🔥 Live Fire Training — Burn Day Manager</div>
           <div style={{fontSize:11,color:"#999",marginTop:2}}>
             {evolutions.length} evolution(s){saving?" · Saving…":""}
           </div>
+          <input
+            type="text"
+            placeholder="Burn Day Title (e.g. 2026 High School Level 2)"
+            value={burnDayTitle}
+            onChange={e=>updateBurnDayTitle(e.target.value)}
+            style={{fontSize:13,padding:"4px 10px",border:"1px solid #e0ddd8",borderRadius:6,
+              marginTop:6,width:"100%",maxWidth:380,fontFamily:"inherit",color:"#1a1a1a",background:"#f9f8f6"}}
+          />
         </div>
         <div style={S.topbarR}>
           <span style={{padding:"3px 9px",borderRadius:20,fontSize:11,fontWeight:600,...(role==="admin"?{background:"#EAF3DE",color:"#3B6D11"}:{background:"#E6F1FB",color:"#185FA5"})}}>
