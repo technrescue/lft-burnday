@@ -163,6 +163,7 @@ export default function App() {
   const [fillins,setFillins] = useState([]);
   const [savedTeams,setSavedTeams] = useState([]);
   const [burnDay,setBurnDay] = useState(null);
+  const [burnDayTitle,setBurnDayTitle] = useState("");
   const [evolutions,setEvolutions] = useState([]);
   const [currentEvoIdx,setCurrentEvoIdx] = useState(0);
   const [history,setHistory] = useState([]);
@@ -199,6 +200,7 @@ export default function App() {
       bd = data;
     }
     setBurnDay(bd);
+    setBurnDayTitle(bd.title||"");
     const eR = await sb.from("evolutions").select("*").eq("burn_day_id",bd.id).order("evo_number");
     let evos = eR.data||[];
     if(!evos.length){
@@ -218,6 +220,16 @@ export default function App() {
     setRole(r); setConfig(cfg); setScreen("app");
     await loadAll(r);
   },[loadAll]);
+
+  // ── Save Burn Day Title ─────────────────────────────────
+  const titleTimer = useRef(null);
+  const updateBurnDayTitle = (val) => {
+    setBurnDayTitle(val);
+    clearTimeout(titleTimer.current);
+    titleTimer.current = setTimeout(async()=>{
+      if(burnDay?.id) await sb.from("burn_days").update({title:val}).eq("id",burnDay.id);
+    },600);
+  };
 
   // ── Save ────────────────────────────────────────────────
   const saveEvo = useCallback(async (evos,idx) => {
@@ -454,7 +466,7 @@ export default function App() {
     if(hasData){
       const save = window.confirm("Save current work as a draft before opening this one?");
       if(save){
-        const nm = window.prompt("Name for current draft:","Draft "+new Date().toLocaleTimeString());
+        const nm = window.prompt("Name for current draft:",burnDayTitle||"Draft "+new Date().toLocaleTimeString());
         if(nm) await saveDraft(nm);
       }
     }
@@ -479,7 +491,7 @@ export default function App() {
     clearTimeout(saveTimer.current);
     await saveEvo(evolutions,currentEvoIdx);
     await sb.from("burn_days").update({status:"archived",archived_at:new Date().toISOString()}).eq("id",burnDay.id);
-    exportPDF(evolutions,burnDay.date);
+    exportPDF(evolutions,burnDay.date,burnDayTitle);
     showToast("Burn day archived — PDF downloading!",3500);
     const {data:bd} = await sb.from("burn_days").insert({date:new Date().toISOString().split("T")[0],status:"active"}).select().single();
     const {data:evo} = await sb.from("evolutions").insert({burn_day_id:bd.id,...mkEvoData(1)}).select().single();
@@ -487,7 +499,8 @@ export default function App() {
       const hR = await sb.from("burn_days").select("*").eq("status","archived").order("archived_at",{ascending:false});
       setHistory(hR.data||[]);
     }
-    setBurnDay(bd); setEvolutions([evo]); setCurrentEvoIdx(0); setActiveTab("evolutions");
+    setBurnDay(bd);
+    setBurnDayTitle(bd.title||""); setEvolutions([evo]); setCurrentEvoIdx(0); setActiveTab("evolutions");
   };
 
   // ── History ──────────────────────────────────────────────
@@ -500,13 +513,13 @@ export default function App() {
     if(historyEvos[bdId]) setHistoryEvos(prev=>{const c={...prev};delete c[bdId];return c;});
     else await loadHistEvos(bdId);
   };
-  const exportHistory = async (bdId,date) => {
+  const exportHistory = async (bdId,date,title) => {
     await loadHistEvos(bdId);
-    exportPDF(historyEvos[bdId]||[],date);
+    exportPDF(historyEvos[bdId]||[],date,title);
   };
 
   // ── PDF Export ───────────────────────────────────────────
-  const exportPDF = (evos,burnDate) => {
+  const exportPDF = (evos,burnDate,bdTitle) => {
     const doc = new jsPDF({orientation:"portrait",unit:"pt",format:"letter"});
     const W=612, m=36, usableW=W-m*2;
 
@@ -517,6 +530,7 @@ export default function App() {
       // ── Title ──
       doc.setFontSize(14);doc.setFont(undefined,"bold");doc.setTextColor(0);
       doc.text("Live Fire Training Worksheet",W/2,y+10,{align:"center"});
+      if(bdTitle){doc.setFontSize(9);doc.setFont(undefined,"normal");doc.text(bdTitle,W/2,y+20,{align:"center"});}
       doc.setLineWidth(0.75);doc.setDrawColor(0);doc.line(m,y+15,W-m,y+15);
       y+=24;
 
@@ -662,7 +676,8 @@ export default function App() {
       });
     });
 
-    doc.save("LFT_BurnDay_"+(burnDate||"export")+".pdf");
+    const fname = bdTitle ? `LFT_${bdTitle.replace(/\s+/g,"_")}_${burnDate||"export"}.pdf` : `LFT_BurnDay_${burnDate||"export"}.pdf`;
+    doc.save(fname);
   };
 
   // ── Helpers ──────────────────────────────────────────────
@@ -1410,12 +1425,12 @@ function AdminTab({history,historyEvos,toggleHistEvos,exportHistory,config,setCo
         history.map(bd=><div key={bd.id}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:"1px solid #e0ddd8"}}>
             <div>
-              <strong>Burn Day — {bd.date}</strong>
+              <strong>Burn Day — {bd.title||bd.date}</strong>
               <div style={{fontSize:12,color:"#666",marginTop:2}}>Archived {new Date(bd.archived_at).toLocaleString()}</div>
             </div>
             <div style={{display:"flex",gap:8}}>
               <button style={S.btn} onClick={()=>toggleHistEvos(bd.id)}>{historyEvos[bd.id]?"Hide":"View"} Evolutions</button>
-              <button style={S.btnPrimary} onClick={()=>exportHistory(bd.id,bd.date)}>Export PDF</button>
+              <button style={S.btnPrimary} onClick={()=>exportHistory(bd.id,bd.date,bd.title)}>Export PDF</button>
             </div>
           </div>
           {historyEvos[bd.id]&&<div style={{padding:"8px 0 8px 20px",background:"#f4f3f0",borderBottom:"1px solid #e0ddd8"}}>
