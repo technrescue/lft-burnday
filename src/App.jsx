@@ -124,23 +124,23 @@ function PinScreen({onLogin}) {
   };
 
   return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#f4f3f0"}}>
-      <div style={S.pinCard}>
-        <div style={{fontSize:32,marginBottom:8}}>🔥</div>
-        <h1 style={{fontSize:20,fontWeight:700,marginBottom:4}}>Live Fire Training</h1>
-        <p style={{fontSize:12,color:"#666",marginBottom:20}}>Burn Day Manager — Enter PIN</p>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#111"}}>
+      <div style={{...S.pinCard,background:"#1a1a1a",border:"1px solid #333",textAlign:"center"}}>
+        <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:140,height:140,objectFit:"contain",marginBottom:8}}/>
+        <h1 style={{fontSize:20,fontWeight:700,marginBottom:4,color:"#fff"}}>Live Fire Training</h1>
+        <p style={{fontSize:12,color:"#999",marginBottom:20}}>Burn Day Manager — Enter PIN</p>
         <input
           type="password" inputMode="numeric" maxLength={8}
           value={pin} onChange={e=>setPin(e.target.value)}
           onKeyDown={e=>e.key==="Enter"&&doLogin()}
-          style={{...S.input,fontSize:24,letterSpacing:10,textAlign:"center",marginBottom:12}}
+          style={{...S.input,fontSize:24,letterSpacing:10,textAlign:"center",marginBottom:12,background:"#111",color:"#FFD700",border:"1px solid #444"}}
           placeholder="••••" autoFocus
         />
         <button onClick={doLogin} disabled={loading}
           style={{...S.btnPrimary,width:"100%",padding:11,fontSize:14,fontWeight:600}}>
           {loading?"Checking...":"Enter"}
         </button>
-        {err&&<p style={{color:"#A32D2D",fontSize:12,marginTop:8}}>{err}</p>}
+        {err&&<p style={{color:"#ff6b6b",fontSize:12,marginTop:8}}>{err}</p>}
       </div>
     </div>
   );
@@ -768,6 +768,18 @@ export default function App() {
           config={config} setConfig={setConfig} showToast={showToast}
         />}
       </div>
+    {/* Footer */}
+      <div style={{background:"#111",borderTop:"1px solid #222",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:36,height:36,objectFit:"contain"}}/>
+          <div>
+            <div style={{color:"#fff",fontSize:12,fontWeight:700,letterSpacing:"0.05em"}}>TECH N RESCUE INNOVATIONS</div>
+            <div style={{color:"#666",fontSize:10,letterSpacing:"0.08em"}}>A TECH N RESCUE INNOVATIONS PRODUCT</div>
+          </div>
+        </div>
+        <div style={{color:"#444",fontSize:10}}>Live Fire Training — Burn Day Manager</div>
+      </div>
+
     {/* Save Draft Modal */}
       {showSaveDraft&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}}>
