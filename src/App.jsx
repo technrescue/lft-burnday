@@ -124,8 +124,8 @@ function PinScreen({onLogin}) {
   };
 
   return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#111"}}>
-      <div style={{...S.pinCard,background:"#1a1a1a",border:"1px solid #333",textAlign:"center"}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#ffffff"}}>
+      <div style={{...S.pinCard,background:"#000000",border:"1px solid #222",textAlign:"center",boxShadow:"0 8px 40px rgba(0,0,0,0.18)"}}>
         <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:140,height:140,objectFit:"contain",marginBottom:8}}/>
         <h1 style={{fontSize:20,fontWeight:700,marginBottom:4,color:"#fff"}}>Live Fire Training</h1>
         <p style={{fontSize:12,color:"#999",marginBottom:20}}>Burn Day Manager — Enter PIN</p>
@@ -771,7 +771,7 @@ export default function App() {
     {/* Footer */}
       <div style={{background:"#111",borderTop:"1px solid #222",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:70,height:70,objectFit:"contain"}}/>
+          <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:95,height:95,objectFit:"contain"}}/>
           <div>
             <div style={{color:"#fff",fontSize:23,fontWeight:700,letterSpacing:"0.05em"}}>TECH N RESCUE INNOVATIONS</div>
             <div style={{color:"#666",fontSize:19,letterSpacing:"0.08em"}}>A TECH N RESCUE INNOVATIONS PRODUCT</div>
