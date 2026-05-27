@@ -1171,45 +1171,125 @@ function ScenariosTab({scenarios,role,addScenario,deleteScenario,uploadScenarioP
   const [num,setNum] = useState("");
   const [title,setTitle] = useState("");
   const [desc,setDesc] = useState("");
-  const [focusId,setFocusId] = useState(null);
+  const [lightbox,setLightbox] = useState(null); // index into withPDFs
 
   const withPDFs = scenarios.filter(s=>s.pdf_url);
 
+  const prevSlide = () => setLightbox(i=>(i-1+withPDFs.length)%withPDFs.length);
+  const nextSlide = () => setLightbox(i=>(i+1)%withPDFs.length);
+
+  // keyboard nav
+  useEffect(()=>{
+    if(lightbox===null) return;
+    const handler = (e)=>{
+      if(e.key==="ArrowRight"||e.key==="ArrowDown") nextSlide();
+      if(e.key==="ArrowLeft"||e.key==="ArrowUp") prevSlide();
+      if(e.key==="Escape") setLightbox(null);
+    };
+    window.addEventListener("keydown",handler);
+    return ()=>window.removeEventListener("keydown",handler);
+  },[lightbox,withPDFs.length]);
+
   return <>
-    {/* PDF Scroll Gallery */}
-    {withPDFs.length>0&&(
-      <div style={{...S.card,marginBottom:14}}>
-        <div style={S.secTitle}>Scroll Through Scenario PDFs</div>
-        <div style={{display:"flex",gap:12,overflowX:"auto",paddingBottom:8,scrollSnapType:"x mandatory"}}>
-          {withPDFs.map(sc=>(
-            <div key={sc.id}
-              onClick={()=>setFocusId(focusId===sc.id?null:sc.id)}
-              style={{flexShrink:0,width:320,scrollSnapAlign:"start",cursor:"pointer",
-                border:`2px solid ${focusId===sc.id?"#A32D2D":"#e0ddd8"}`,borderRadius:8,overflow:"hidden"}}>
-              <div style={{background:focusId===sc.id?"#A32D2D":"#1a1a1a",color:"#fff",
-                padding:"6px 12px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
-                <span>Scenario {sc.number}</span>
-                <span style={{fontWeight:400,opacity:0.8}}>{sc.title}</span>
+    {/* Fullscreen lightbox */}
+    {lightbox!==null&&withPDFs[lightbox]&&(
+      <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.95)",zIndex:2000,
+        display:"flex",flexDirection:"column"}}>
+        {/* Lightbox header */}
+        <div style={{background:"#111",padding:"10px 20px",display:"flex",alignItems:"center",
+          justifyContent:"space-between",borderBottom:"1px solid #222",flexShrink:0}}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <span style={{background:"#A32D2D",color:"#fff",fontWeight:700,fontSize:16,
+              padding:"4px 12px",borderRadius:6}}>
+              {withPDFs[lightbox].number}
+            </span>
+            <span style={{color:"#fff",fontWeight:600,fontSize:15}}>{withPDFs[lightbox].title}</span>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <span style={{color:"#666",fontSize:12}}>{lightbox+1} of {withPDFs.length}</span>
+            <a href={withPDFs[lightbox].pdf_url} target="_blank" rel="noreferrer"
+              style={{color:"#4a9fd4",fontSize:12,fontWeight:600,textDecoration:"none"}}>
+              Open Full Screen ↗
+            </a>
+            <button onClick={()=>setLightbox(null)}
+              style={{background:"none",border:"1px solid #444",color:"#fff",borderRadius:6,
+                padding:"5px 12px",cursor:"pointer",fontSize:13}}>
+              ✕ Close
+            </button>
+          </div>
+        </div>
+        {/* PDF viewer */}
+        <div style={{flex:1,position:"relative",display:"flex",alignItems:"stretch"}}>
+          {/* Prev button */}
+          <button onClick={prevSlide}
+            style={{position:"absolute",left:0,top:0,bottom:0,width:56,background:"rgba(0,0,0,0.4)",
+              border:"none",color:"#fff",fontSize:28,cursor:"pointer",zIndex:10,
+              display:"flex",alignItems:"center",justifyContent:"center"}}
+            disabled={withPDFs.length<=1}>‹</button>
+          {/* PDF */}
+          <iframe
+            key={withPDFs[lightbox].id}
+            src={withPDFs[lightbox].pdf_url+"#toolbar=1&navpanes=0"}
+            style={{flex:1,border:"none",margin:"0 56px"}}
+            title={`Scenario ${withPDFs[lightbox].number}`}
+          />
+          {/* Next button */}
+          <button onClick={nextSlide}
+            style={{position:"absolute",right:0,top:0,bottom:0,width:56,background:"rgba(0,0,0,0.4)",
+              border:"none",color:"#fff",fontSize:28,cursor:"pointer",zIndex:10,
+              display:"flex",alignItems:"center",justifyContent:"center"}}
+            disabled={withPDFs.length<=1}>›</button>
+        </div>
+        {/* Thumbnail strip */}
+        <div style={{background:"#111",borderTop:"1px solid #222",padding:"8px 12px",
+          display:"flex",gap:8,overflowX:"auto",flexShrink:0}}>
+          {withPDFs.map((sc,i)=>(
+            <div key={sc.id} onClick={()=>setLightbox(i)}
+              style={{flexShrink:0,cursor:"pointer",border:`2px solid ${i===lightbox?"#A32D2D":"#333"}`,
+                borderRadius:6,overflow:"hidden",width:80}}>
+              <div style={{background:i===lightbox?"#A32D2D":"#222",color:"#fff",
+                fontSize:10,fontWeight:700,padding:"2px 0",textAlign:"center"}}>
+                #{sc.number}
               </div>
-              <iframe
-                src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0"}
-                style={{width:"100%",height:420,border:"none",display:"block",pointerEvents:"none"}}
-                title={`Scenario ${sc.number}`}
-              />
+              <iframe src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0"}
+                style={{width:"100%",height:90,border:"none",display:"block",pointerEvents:"none"}}
+                title={`thumb ${sc.number}`}/>
             </div>
           ))}
         </div>
-        {focusId&&(()=>{
-          const sc=withPDFs.find(s=>s.id===focusId);
-          return sc?<div style={{marginTop:10,padding:"10px 14px",background:"#f4f3f0",borderRadius:8,
-            display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontWeight:600}}>Scenario {sc.number} — {sc.title}</span>
-            <a href={sc.pdf_url} target="_blank" rel="noreferrer"
-              style={{fontSize:12,color:"#185FA5",fontWeight:600,textDecoration:"none"}}>
-              Open Full Screen ↗
-            </a>
-          </div>:null;
-        })()}
+      </div>
+    )}
+
+    {/* PDF Gallery strip — click to open lightbox */}
+    {withPDFs.length>0&&(
+      <div style={S.card}>
+        <div style={{...S.secTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <span>Scenario PDFs — Click to View</span>
+          <button style={{...S.btnPrimary,...S.btnSm}} onClick={()=>setLightbox(0)}>
+            ▶ Slideshow View
+          </button>
+        </div>
+        <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,scrollSnapType:"x mandatory"}}>
+          {withPDFs.map((sc,i)=>(
+            <div key={sc.id} onClick={()=>setLightbox(i)}
+              style={{flexShrink:0,width:180,scrollSnapAlign:"start",cursor:"pointer",
+                border:"2px solid #e0ddd8",borderRadius:8,overflow:"hidden",
+                transition:"border-color 0.15s",":hover":{borderColor:"#A32D2D"}}}>
+              <div style={{background:"#1a1a1a",color:"#fff",padding:"5px 10px",
+                fontSize:11,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
+                <span>#{sc.number}</span>
+                <span style={{fontWeight:400,opacity:0.7,overflow:"hidden",textOverflow:"ellipsis",
+                  whiteSpace:"nowrap",maxWidth:90}}>{sc.title}</span>
+              </div>
+              <iframe src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0"}
+                style={{width:"100%",height:220,border:"none",display:"block",pointerEvents:"none"}}
+                title={`Scenario ${sc.number}`}/>
+              <div style={{background:"#f4f3f0",padding:"4px 8px",fontSize:10,color:"#666",textAlign:"center"}}>
+                Tap to open
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     )}
 
@@ -1217,32 +1297,38 @@ function ScenariosTab({scenarios,role,addScenario,deleteScenario,uploadScenarioP
     {role==="admin"&&<div style={S.card}>
       <div style={S.secTitle}>Add New Scenario</div>
       <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
-        <input style={{...S.input,maxWidth:80}} type="number" placeholder="#" value={num} onChange={e=>setNum(e.target.value)}/>
-        <input style={{...S.input,flex:1,minWidth:180}} type="text" placeholder="Scenario title" value={title} onChange={e=>setTitle(e.target.value)}/>
+        <input style={{...S.input,maxWidth:80}} type="number" placeholder="#" value={num}
+          onChange={e=>setNum(e.target.value)}/>
+        <input style={{...S.input,flex:1,minWidth:180}} type="text" placeholder="Scenario title"
+          value={title} onChange={e=>setTitle(e.target.value)}/>
       </div>
       <textarea
         placeholder="Description — setup, objectives, what crews should expect..."
         value={desc} onChange={e=>setDesc(e.target.value)}
         style={{...S.input,width:"100%",minHeight:80,resize:"vertical",marginBottom:10,fontFamily:"inherit"}}
       />
-      <button style={S.btnPrimary} onClick={()=>{addScenario(num,title,desc);setNum("");setTitle("");setDesc("");}}>
+      <button style={S.btnPrimary}
+        onClick={()=>{addScenario(num,title,desc);setNum("");setTitle("");setDesc("");}}>
         + Add Scenario
       </button>
     </div>}
 
-    {!scenarios.length&&<div style={{...S.card,textAlign:"center",color:"#999",fontSize:13}}>No scenarios added yet.</div>}
+    {!scenarios.length&&<div style={{...S.card,textAlign:"center",color:"#999",fontSize:13,padding:24}}>
+      No scenarios yet. Add your first one above.
+    </div>}
 
     {scenarios.map(sc=>(
       <ScenarioCard key={sc.id} sc={sc} role={role}
         deleteScenario={deleteScenario}
         uploadScenarioPDF={uploadScenarioPDF}
         removeScenarioPDF={removeScenarioPDF}
+        onView={()=>setLightbox(withPDFs.findIndex(s=>s.id===sc.id))}
       />
     ))}
   </>;
 }
 
-function ScenarioCard({sc,role,deleteScenario,uploadScenarioPDF,removeScenarioPDF}) {
+function ScenarioCard({sc,role,deleteScenario,uploadScenarioPDF,removeScenarioPDF,onView}) {
   const fileRef = useRef(null);
   const [uploading,setUploading] = useState(false);
   const [dragging,setDragging] = useState(false);
@@ -1256,69 +1342,49 @@ function ScenarioCard({sc,role,deleteScenario,uploadScenarioPDF,removeScenarioPD
 
   const onDrop = (e) => {
     e.preventDefault(); setDragging(false);
-    const file = e.dataTransfer.files[0];
-    handleUpload(file);
+    handleUpload(e.dataTransfer.files[0]);
   };
 
   return (
-    <div style={{...S.card,marginBottom:16}}>
-      {/* Header */}
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
+    <div style={{...S.card,marginBottom:12}}>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,flex:1}}>
           <span style={{background:"#1a1a1a",color:"#fff",fontWeight:700,fontSize:18,
-            padding:"6px 14px",borderRadius:8,minWidth:48,textAlign:"center"}}>
+            padding:"6px 14px",borderRadius:8,minWidth:48,textAlign:"center",flexShrink:0}}>
             {sc.number}
           </span>
           <div>
-            <div style={{fontWeight:700,fontSize:16}}>{sc.title}</div>
-            {sc.description&&<div style={{fontSize:12,color:"#666",marginTop:2,maxWidth:400}}>{sc.description}</div>}
+            <div style={{fontWeight:700,fontSize:15}}>{sc.title}</div>
+            {sc.description&&<div style={{fontSize:12,color:"#666",marginTop:3,lineHeight:1.5}}>{sc.description}</div>}
           </div>
         </div>
-        {role==="admin"&&(
-          <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+        <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
+          {sc.pdf_url&&<button style={{...S.btnPrimary,...S.btnSm}} onClick={onView}>View PDF</button>}
+          {role==="admin"&&<>
             {sc.pdf_url&&<button style={{...S.btnDanger,...S.btnSm}} onClick={()=>removeScenarioPDF(sc.id)}>Remove PDF</button>}
             <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>deleteScenario(sc.id)}>Delete</button>
-          </div>
-        )}
+          </>}
+        </div>
       </div>
 
-      {/* Drag & Drop zone — admin only, shown when no PDF or to replace */}
+      {/* Drag & drop — admin only */}
       {role==="admin"&&(
         <div
           onDragOver={e=>{e.preventDefault();setDragging(true);}}
           onDragLeave={()=>setDragging(false)}
           onDrop={onDrop}
           onClick={()=>fileRef.current.click()}
-          style={{border:`2px dashed ${dragging?"#A32D2D":"#c8c5be"}`,borderRadius:8,
-            padding:"14px 20px",textAlign:"center",cursor:"pointer",marginBottom:sc.pdf_url?12:0,
+          style={{marginTop:12,border:`2px dashed ${dragging?"#A32D2D":"#c8c5be"}`,
+            borderRadius:8,padding:"12px 16px",textAlign:"center",cursor:"pointer",
             background:dragging?"rgba(163,45,45,0.05)":"#f9f8f6",transition:"all 0.15s"}}>
           <input ref={fileRef} type="file" accept="application/pdf" style={{display:"none"}}
             onChange={e=>handleUpload(e.target.files[0])}/>
-          {uploading
-            ? <span style={{fontSize:12,color:"#666"}}>Uploading...</span>
-            : <span style={{fontSize:12,color:"#666"}}>
-                {dragging?"Drop PDF here":"Drag & drop PDF here, or click to browse"}
-                {sc.pdf_url&&<span style={{color:"#A32D2D"}}> (replaces current)</span>}
-              </span>
-          }
-        </div>
-      )}
-
-      {/* PDF inline viewer */}
-      {sc.pdf_url&&(
-        <div style={{borderRadius:8,overflow:"hidden",border:"1px solid #e0ddd8"}}>
-          <iframe
-            src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0"}
-            style={{width:"100%",height:600,border:"none",display:"block"}}
-            title={`Scenario ${sc.number} PDF`}
-          />
-          <div style={{padding:"8px 12px",background:"#f4f3f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontSize:11,color:"#999"}}>Scenario {sc.number} — {sc.title}</span>
-            <a href={sc.pdf_url} target="_blank" rel="noreferrer"
-              style={{fontSize:12,color:"#185FA5",textDecoration:"none",fontWeight:600}}>
-              Open Full Screen ↗
-            </a>
-          </div>
+          <span style={{fontSize:12,color:dragging?"#A32D2D":"#999"}}>
+            {uploading?"Uploading..."
+              :dragging?"Drop PDF here"
+              :sc.pdf_url?"Drag & drop to replace PDF, or click to browse"
+              :"Drag & drop PDF here, or click to browse"}
+          </span>
         </div>
       )}
     </div>
