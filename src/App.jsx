@@ -1171,8 +1171,48 @@ function ScenariosTab({scenarios,role,addScenario,deleteScenario,uploadScenarioP
   const [num,setNum] = useState("");
   const [title,setTitle] = useState("");
   const [desc,setDesc] = useState("");
+  const [focusId,setFocusId] = useState(null);
+
+  const withPDFs = scenarios.filter(s=>s.pdf_url);
 
   return <>
+    {/* PDF Scroll Gallery */}
+    {withPDFs.length>0&&(
+      <div style={{...S.card,marginBottom:14}}>
+        <div style={S.secTitle}>Scroll Through Scenario PDFs</div>
+        <div style={{display:"flex",gap:12,overflowX:"auto",paddingBottom:8,scrollSnapType:"x mandatory"}}>
+          {withPDFs.map(sc=>(
+            <div key={sc.id}
+              onClick={()=>setFocusId(focusId===sc.id?null:sc.id)}
+              style={{flexShrink:0,width:320,scrollSnapAlign:"start",cursor:"pointer",
+                border:`2px solid ${focusId===sc.id?"#A32D2D":"#e0ddd8"}`,borderRadius:8,overflow:"hidden"}}>
+              <div style={{background:focusId===sc.id?"#A32D2D":"#1a1a1a",color:"#fff",
+                padding:"6px 12px",fontSize:12,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
+                <span>Scenario {sc.number}</span>
+                <span style={{fontWeight:400,opacity:0.8}}>{sc.title}</span>
+              </div>
+              <iframe
+                src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0"}
+                style={{width:"100%",height:420,border:"none",display:"block",pointerEvents:"none"}}
+                title={`Scenario ${sc.number}`}
+              />
+            </div>
+          ))}
+        </div>
+        {focusId&&(()=>{
+          const sc=withPDFs.find(s=>s.id===focusId);
+          return sc?<div style={{marginTop:10,padding:"10px 14px",background:"#f4f3f0",borderRadius:8,
+            display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontWeight:600}}>Scenario {sc.number} — {sc.title}</span>
+            <a href={sc.pdf_url} target="_blank" rel="noreferrer"
+              style={{fontSize:12,color:"#185FA5",fontWeight:600,textDecoration:"none"}}>
+              Open Full Screen ↗
+            </a>
+          </div>:null;
+        })()}
+      </div>
+    )}
+
     {/* Add new — admin only */}
     {role==="admin"&&<div style={S.card}>
       <div style={S.secTitle}>Add New Scenario</div>
@@ -1192,7 +1232,6 @@ function ScenariosTab({scenarios,role,addScenario,deleteScenario,uploadScenarioP
 
     {!scenarios.length&&<div style={{...S.card,textAlign:"center",color:"#999",fontSize:13}}>No scenarios added yet.</div>}
 
-    {/* Scenario cards — all expanded, scroll through */}
     {scenarios.map(sc=>(
       <ScenarioCard key={sc.id} sc={sc} role={role}
         deleteScenario={deleteScenario}
@@ -1206,13 +1245,19 @@ function ScenariosTab({scenarios,role,addScenario,deleteScenario,uploadScenarioP
 function ScenarioCard({sc,role,deleteScenario,uploadScenarioPDF,removeScenarioPDF}) {
   const fileRef = useRef(null);
   const [uploading,setUploading] = useState(false);
+  const [dragging,setDragging] = useState(false);
 
-  const handleUpload = async (e) => {
-    const file = e.target.files[0];
-    if(!file) return;
+  const handleUpload = async (file) => {
+    if(!file||file.type!=="application/pdf") return;
     setUploading(true);
     await uploadScenarioPDF(sc.id, file);
     setUploading(false);
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault(); setDragging(false);
+    const file = e.dataTransfer.files[0];
+    handleUpload(file);
   };
 
   return (
@@ -1225,33 +1270,43 @@ function ScenarioCard({sc,role,deleteScenario,uploadScenarioPDF,removeScenarioPD
             {sc.number}
           </span>
           <div>
-            <div style={{fontWeight:700,fontSize:16,color:"#1a1a1a"}}>{sc.title}</div>
-            {sc.description&&<div style={{fontSize:12,color:"#666",marginTop:2}}>Tap PDF below to view full scenario sheet</div>}
+            <div style={{fontWeight:700,fontSize:16}}>{sc.title}</div>
+            {sc.description&&<div style={{fontSize:12,color:"#666",marginTop:2,maxWidth:400}}>{sc.description}</div>}
           </div>
         </div>
         {role==="admin"&&(
-          <div style={{display:"flex",gap:6,flexShrink:0}}>
-            <input ref={fileRef} type="file" accept="application/pdf" style={{display:"none"}} onChange={handleUpload}/>
-            <button style={{...S.btn,...S.btnSm}} onClick={()=>fileRef.current.click()} disabled={uploading}>
-              {uploading?"Uploading...":(sc.pdf_url?"Replace PDF":"+ Upload PDF")}
-            </button>
+          <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
             {sc.pdf_url&&<button style={{...S.btnDanger,...S.btnSm}} onClick={()=>removeScenarioPDF(sc.id)}>Remove PDF</button>}
             <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>deleteScenario(sc.id)}>Delete</button>
           </div>
         )}
       </div>
 
-      {/* Description text */}
-      {sc.description&&(
-        <div style={{fontSize:13,color:"#444",lineHeight:1.7,marginBottom:sc.pdf_url?14:0,
-          padding:"10px 14px",background:"#f9f8f6",borderRadius:8,whiteSpace:"pre-wrap"}}>
-          {sc.description}
+      {/* Drag & Drop zone — admin only, shown when no PDF or to replace */}
+      {role==="admin"&&(
+        <div
+          onDragOver={e=>{e.preventDefault();setDragging(true);}}
+          onDragLeave={()=>setDragging(false)}
+          onDrop={onDrop}
+          onClick={()=>fileRef.current.click()}
+          style={{border:`2px dashed ${dragging?"#A32D2D":"#c8c5be"}`,borderRadius:8,
+            padding:"14px 20px",textAlign:"center",cursor:"pointer",marginBottom:sc.pdf_url?12:0,
+            background:dragging?"rgba(163,45,45,0.05)":"#f9f8f6",transition:"all 0.15s"}}>
+          <input ref={fileRef} type="file" accept="application/pdf" style={{display:"none"}}
+            onChange={e=>handleUpload(e.target.files[0])}/>
+          {uploading
+            ? <span style={{fontSize:12,color:"#666"}}>Uploading...</span>
+            : <span style={{fontSize:12,color:"#666"}}>
+                {dragging?"Drop PDF here":"Drag & drop PDF here, or click to browse"}
+                {sc.pdf_url&&<span style={{color:"#A32D2D"}}> (replaces current)</span>}
+              </span>
+          }
         </div>
       )}
 
-      {/* PDF viewer — inline, full width */}
+      {/* PDF inline viewer */}
       {sc.pdf_url&&(
-        <div style={{marginTop:sc.description?12:0,borderRadius:8,overflow:"hidden",border:"1px solid #e0ddd8"}}>
+        <div style={{borderRadius:8,overflow:"hidden",border:"1px solid #e0ddd8"}}>
           <iframe
             src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0"}
             style={{width:"100%",height:600,border:"none",display:"block"}}
