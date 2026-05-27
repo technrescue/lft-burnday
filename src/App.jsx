@@ -1049,7 +1049,7 @@ function RosterTab({rosterTab,setRosterTab,instructors,students,fillins,savedTea
   return <>
     <div style={{display:"flex",borderBottom:"1px solid #e0ddd8",marginBottom:20,background:"#f4f3f0",margin:"-20px -20px 20px"}}>
       {subtabs.map(t=><button key={t} className={`tab-btn${rosterTab===t?" active":""}`} onClick={()=>setRosterTab(t)}>
-        {t.charAt(0).toUpperCase()+t.slice(1)}
+        {subtabLabels[t]}
       </button>)}
     </div>
     {rosterTab==="instructors"&&<InstructorRoster instructors={instructors} addInstructor={addInstructor} removeInstructor={removeInstructor}/>}
