@@ -1045,6 +1045,7 @@ function TempInput({label,value,onUpdate,onFinalize}) {
 // ── Roster Tab ────────────────────────────────────────────
 function RosterTab({rosterTab,setRosterTab,instructors,students,fillins,savedTeams,allStudents,addInstructor,removeInstructor,addStudent,removeStudent,addFillin,removeFillin,createSavedTeam,removeSavedTeam,addMemberToTeam,removeMemberFromTeam}) {
   const subtabs = ["instructors","students","fillins","teams"];
+  const subtabLabels = {instructors:"Instructors",students:"Students",fillins:"Fill-Ins",teams:"Teams"};
   return <>
     <div style={{display:"flex",borderBottom:"1px solid #e0ddd8",marginBottom:20,background:"#f4f3f0",margin:"-20px -20px 20px"}}>
       {subtabs.map(t=><button key={t} className={`tab-btn${rosterTab===t?" active":""}`} onClick={()=>setRosterTab(t)}>
