@@ -167,6 +167,7 @@ export default function App() {
   const [history,setHistory] = useState([]);
   const [historyEvos,setHistoryEvos] = useState({});
   const [drafts,setDrafts] = useState([]);
+  const [scenarios,setScenarios] = useState([]);
   const [showDraftModal,setShowDraftModal] = useState(false);
   const [showSaveDraft,setShowSaveDraft] = useState(false);
   const [draftName,setDraftName] = useState("");
@@ -175,19 +176,21 @@ export default function App() {
 
   const loadAll = useCallback(async (r) => {
     setLoading(true);
-    const [iR,sR,fR,tR,bdR,dR] = await Promise.all([
+    const [iR,sR,fR,tR,bdR,dR,scR] = await Promise.all([
       sb.from("instructors").select("*").order("name"),
       sb.from("students").select("*").order("name"),
       sb.from("fillins").select("*").order("name"),
       sb.from("saved_teams").select("*").order("name"),
       sb.from("burn_days").select("*").eq("status","active").order("created_at",{ascending:false}).limit(1),
       sb.from("drafts").select("*").order("updated_at",{ascending:false}),
+      sb.from("burn_scenarios").select("*").order("number"),
     ]);
     setInstructors(iR.data||[]);
     setStudents(sR.data||[]);
     setFillins(fR.data||[]);
     setSavedTeams((tR.data||[]).map(t=>({...t,members:t.members||[]})));
     setDrafts(dR.data||[]);
+    setScenarios(scR.data||[]);
 
     let bd = bdR.data&&bdR.data[0];
     if(!bd){
@@ -368,6 +371,47 @@ export default function App() {
     setSavedTeams(prev=>prev.map(t=>t.id===teamId?{...t,members}:t));
   };
 
+  // ── Scenarios ───────────────────────────────────────────
+  const addScenario = async (number,title,description) => {
+    if(!number||!title) return;
+    const {data} = await sb.from("burn_scenarios").insert({number:parseInt(number),title,description,pdf_url:""}).select().single();
+    setScenarios(prev=>[...prev,data].sort((a,b)=>a.number-b.number));
+  };
+  const deleteScenario = async (id) => {
+    if(!window.confirm("Delete this scenario?")) return;
+    // also remove PDF from storage if exists
+    const sc = scenarios.find(s=>s.id===id);
+    if(sc&&sc.pdf_url){
+      const path = sc.pdf_url.split("/scenario-pdfs/")[1];
+      if(path) await sb.storage.from("scenario-pdfs").remove([path]);
+    }
+    await sb.from("burn_scenarios").delete().eq("id",id);
+    setScenarios(prev=>prev.filter(s=>s.id!==id));
+  };
+  const uploadScenarioPDF = async (scenarioId, file) => {
+    if(!file) return;
+    const path = `scenario_${scenarioId}_${Date.now()}.pdf`;
+    // remove old pdf if exists
+    const sc = scenarios.find(s=>s.id===scenarioId);
+    if(sc&&sc.pdf_url){
+      const oldPath = sc.pdf_url.split("/scenario-pdfs/")[1];
+      if(oldPath) await sb.storage.from("scenario-pdfs").remove([oldPath]);
+    }
+    const {error} = await sb.storage.from("scenario-pdfs").upload(path, file, {contentType:"application/pdf"});
+    if(error){console.error(error);return;}
+    const {data:{publicUrl}} = sb.storage.from("scenario-pdfs").getPublicUrl(path);
+    await sb.from("burn_scenarios").update({pdf_url:publicUrl}).eq("id",scenarioId);
+    setScenarios(prev=>prev.map(s=>s.id===scenarioId?{...s,pdf_url:publicUrl}:s));
+  };
+  const removeScenarioPDF = async (scenarioId) => {
+    const sc = scenarios.find(s=>s.id===scenarioId);
+    if(!sc||!sc.pdf_url) return;
+    const path = sc.pdf_url.split("/scenario-pdfs/")[1];
+    if(path) await sb.storage.from("scenario-pdfs").remove([path]);
+    await sb.from("burn_scenarios").update({pdf_url:""}).eq("id",scenarioId);
+    setScenarios(prev=>prev.map(s=>s.id===scenarioId?{...s,pdf_url:""}:s));
+  };
+
   // ── Start New ───────────────────────────────────────────
   const startNew = async () => {
     if(!window.confirm("Clear all evolutions and start fresh? Rosters will not be affected.")) return;
@@ -531,7 +575,7 @@ export default function App() {
           const bx=m+ci*ciW, by=y+ri*ciH;
           doc.setDrawColor(0);doc.setLineWidth(0.3);doc.rect(bx,by,ciW,ciH);
           const chk=(evo.checklist||{})[item];
-          doc.setFontSize(9);doc.setFont(undefined,"normal");doc.text(chk?"☑":"☐",bx+2,by+10);
+          doc.setFontSize(7);doc.setFont(undefined,"normal");doc.text(chk?"[X]":"[ ]",bx+2,by+11);
           doc.setFontSize(7);doc.text(item.slice(0,38),bx+13,by+10);
         });
       });y+=maxRows*ciH+6;
@@ -637,7 +681,7 @@ export default function App() {
   </div>;
 
   const evo = evolutions[currentEvoIdx];
-  const tabs = ["evolutions","roster",...(role==="admin"?["admin"]:[])];
+  const tabs = ["evolutions","roster","scenarios",...(role==="admin"?["admin"]:[])];
 
   return (
     <div style={S.app}>
@@ -699,7 +743,7 @@ export default function App() {
 
       {/* Content */}
       <div style={S.content}>
-        {activeTab==="evolutions"&&<EvoTab
+        {activeTab==="evolutions"&&<EvoTab scenarios={scenarios}
           evolutions={evolutions} currentEvoIdx={currentEvoIdx} setCurrentEvoIdx={setCurrentEvoIdx}
           evo={evo} allChecked={allChecked} allStudents={allStudents}
           instructors={instructors} savedTeams={savedTeams}
@@ -717,6 +761,7 @@ export default function App() {
           createSavedTeam={createSavedTeam} removeSavedTeam={removeSavedTeam}
           addMemberToTeam={addMemberToTeam} removeMemberFromTeam={removeMemberFromTeam}
         />}
+        {activeTab==="scenarios"&&<ScenariosTab scenarios={scenarios} role={role} addScenario={addScenario} deleteScenario={deleteScenario} uploadScenarioPDF={uploadScenarioPDF} removeScenarioPDF={removeScenarioPDF}/>}
         {activeTab==="admin"&&<AdminTab
           history={history} historyEvos={historyEvos}
           toggleHistEvos={toggleHistEvos} exportHistory={exportHistory}
@@ -772,7 +817,7 @@ export default function App() {
 }
 
 // ── Evolution Tab ─────────────────────────────────────────
-function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStudents,instructors,savedTeams,updEvo,updPos,togCheck,stampTime,updTs,updTemp,finalizeTemp,updTeam,autoFillTeam,addEvolution}) {
+function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStudents,instructors,savedTeams,updEvo,updPos,togCheck,stampTime,updTs,updTemp,finalizeTemp,updTeam,autoFillTeam,addEvolution,scenarios}) {
   const SCENARIOS = Array.from({length:12},(_,i)=>String(i+1));
   if(!evo) return <div style={{padding:40,textAlign:"center",color:"#999"}}>No evolutions yet.</div>;
   const allChk = allChecked(evo);
@@ -807,10 +852,14 @@ function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStu
           <label style={S.lbl}>Evolution #</label>
           <input style={{...S.input,background:"#f4f3f0",color:"#999"}} value={evo.evo_number} readOnly/>
         </div>
-        <div style={{...S.fg,maxWidth:140}}>
+        <div style={{...S.fg,maxWidth:200}}>
           <label style={S.lbl}>Scenario #</label>
           <select style={S.select} value={evo.scenario} onChange={e=>updEvo("scenario",e.target.value)}>
-            {SCENARIOS.map(n=><option key={n} value={n}>{n}</option>)}
+            <option value="">-- Select --</option>
+            {scenarios && scenarios.length>0
+              ? scenarios.map(s=><option key={s.id} value={String(s.number)}>{s.number} — {s.title}</option>)
+              : SCENARIOS.map(n=><option key={n} value={n}>{n}</option>)
+            }
           </select>
         </div>
         <div style={{...S.fg,maxWidth:200}}>
@@ -1052,28 +1101,166 @@ function TeamBuilder({savedTeams,allStudents,createSavedTeam,removeSavedTeam,add
 }
 
 function TeamBuilderCard({team,allStudents,addMemberToTeam,removeMemberFromTeam,removeSavedTeam}) {
-  const [pick,setPick] = useState("");
+  const [showPicker,setShowPicker] = useState(false);
+  const [selected,setSelected] = useState([]);
+  const alreadyIn = team.members.map(m=>m.name);
+  const available = allStudents().filter(s=>!alreadyIn.includes(s.name));
+
+  const toggleSel = (val) => {
+    setSelected(prev=>prev.includes(val)?prev.filter(v=>v!==val):[...prev,val]);
+  };
+  const addSelected = () => {
+    selected.forEach(val=>addMemberToTeam(team.id,val));
+    setSelected([]); setShowPicker(false);
+  };
+
   return <div style={{border:"1px solid #e0ddd8",borderRadius:8,overflow:"hidden",marginBottom:10}}>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",background:"#f4f3f0",borderBottom:"1px solid #e0ddd8"}}>
       <strong style={{fontSize:13}}>{team.name}</strong>
       <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>removeSavedTeam(team.id)}>Delete Team</button>
     </div>
     <div style={{padding:"10px 12px",display:"flex",flexWrap:"wrap",gap:6,minHeight:40}}>
-      {team.members.length===0&&<span style={{fontSize:12,color:"#999"}}>No members yet</span>}
+      {team.members.length===0&&<span style={{fontSize:12,color:"#999"}}>No members yet — click Add Members</span>}
       {team.members.map(m=>(
         <span key={m.name} style={{...S.tag(m.type),cursor:"pointer"}} title="Click to remove" onClick={()=>removeMemberFromTeam(team.id,m.name)}>
           {m.name} ✕
         </span>
       ))}
     </div>
-    <div style={{padding:"8px 12px",borderTop:"1px solid #e0ddd8",display:"flex",gap:8}}>
-      <select style={{...S.select,flex:1,maxWidth:280}} value={pick} onChange={e=>setPick(e.target.value)}>
-        <option value="">Add member from roster...</option>
-        {allStudents().map(s=><option key={s.id} value={`${s.name}|${s.type}`}>{s.name}{s.type==="fillin"?" (Fill-in)":""}</option>)}
-      </select>
-      <button style={S.btnPrimary} onClick={()=>{addMemberToTeam(team.id,pick);setPick("");}}>Add</button>
+    <div style={{padding:"8px 12px",borderTop:"1px solid #e0ddd8"}}>
+      {!showPicker
+        ? <button style={S.btnPrimary} onClick={()=>setShowPicker(true)}>+ Add Members</button>
+        : <div>
+            <div style={{maxHeight:200,overflowY:"auto",border:"1px solid #e0ddd8",borderRadius:8,marginBottom:8}}>
+              {available.length===0&&<div style={{padding:"10px 12px",fontSize:12,color:"#999"}}>All roster members already added</div>}
+              {available.map(s=>{
+                const val=`${s.name}|${s.type}`;
+                const isSel=selected.includes(val);
+                return(
+                <div key={s.id} onClick={()=>toggleSel(val)}
+                  style={{display:"flex",alignItems:"center",gap:10,padding:"7px 12px",cursor:"pointer",borderBottom:"1px solid #f0ede8",
+                    background:isSel?"#EAF3DE":"#fff"}}>
+                  <input type="checkbox" checked={isSel} onChange={()=>toggleSel(val)} style={{accentColor:"#3B6D11"}}/>
+                  <span style={{...S.tag(s.type),margin:0}}>{s.name}</span>
+                  {s.type==="fillin"&&<span style={{fontSize:10,color:"#999"}}>(Fill-in)</span>}
+                </div>
+                );
+              })}
+            </div>
+            <div style={{display:"flex",gap:8,alignItems:"center"}}>
+              <span style={{fontSize:12,color:"#666"}}>{selected.length} selected</span>
+              <button style={S.btnPrimary} onClick={addSelected} disabled={!selected.length}>Add {selected.length||""} Members</button>
+              <button style={S.btn} onClick={()=>{setShowPicker(false);setSelected([]);}}>Cancel</button>
+            </div>
+          </div>
+      }
     </div>
   </div>;
+}
+
+
+// ── Scenarios Tab ─────────────────────────────────────────
+function ScenariosTab({scenarios,role,addScenario,deleteScenario,uploadScenarioPDF,removeScenarioPDF}) {
+  const [num,setNum] = useState("");
+  const [title,setTitle] = useState("");
+  const [desc,setDesc] = useState("");
+
+  return <>
+    {/* Add new — admin only */}
+    {role==="admin"&&<div style={S.card}>
+      <div style={S.secTitle}>Add New Scenario</div>
+      <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:8}}>
+        <input style={{...S.input,maxWidth:80}} type="number" placeholder="#" value={num} onChange={e=>setNum(e.target.value)}/>
+        <input style={{...S.input,flex:1,minWidth:180}} type="text" placeholder="Scenario title" value={title} onChange={e=>setTitle(e.target.value)}/>
+      </div>
+      <textarea
+        placeholder="Description — setup, objectives, what crews should expect..."
+        value={desc} onChange={e=>setDesc(e.target.value)}
+        style={{...S.input,width:"100%",minHeight:80,resize:"vertical",marginBottom:10,fontFamily:"inherit"}}
+      />
+      <button style={S.btnPrimary} onClick={()=>{addScenario(num,title,desc);setNum("");setTitle("");setDesc("");}}>
+        + Add Scenario
+      </button>
+    </div>}
+
+    {!scenarios.length&&<div style={{...S.card,textAlign:"center",color:"#999",fontSize:13}}>No scenarios added yet.</div>}
+
+    {/* Scenario cards — all expanded, scroll through */}
+    {scenarios.map(sc=>(
+      <ScenarioCard key={sc.id} sc={sc} role={role}
+        deleteScenario={deleteScenario}
+        uploadScenarioPDF={uploadScenarioPDF}
+        removeScenarioPDF={removeScenarioPDF}
+      />
+    ))}
+  </>;
+}
+
+function ScenarioCard({sc,role,deleteScenario,uploadScenarioPDF,removeScenarioPDF}) {
+  const fileRef = useRef(null);
+  const [uploading,setUploading] = useState(false);
+
+  const handleUpload = async (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    setUploading(true);
+    await uploadScenarioPDF(sc.id, file);
+    setUploading(false);
+  };
+
+  return (
+    <div style={{...S.card,marginBottom:16}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <span style={{background:"#1a1a1a",color:"#fff",fontWeight:700,fontSize:18,
+            padding:"6px 14px",borderRadius:8,minWidth:48,textAlign:"center"}}>
+            {sc.number}
+          </span>
+          <div>
+            <div style={{fontWeight:700,fontSize:16,color:"#1a1a1a"}}>{sc.title}</div>
+            {sc.description&&<div style={{fontSize:12,color:"#666",marginTop:2}}>Tap PDF below to view full scenario sheet</div>}
+          </div>
+        </div>
+        {role==="admin"&&(
+          <div style={{display:"flex",gap:6,flexShrink:0}}>
+            <input ref={fileRef} type="file" accept="application/pdf" style={{display:"none"}} onChange={handleUpload}/>
+            <button style={{...S.btn,...S.btnSm}} onClick={()=>fileRef.current.click()} disabled={uploading}>
+              {uploading?"Uploading...":(sc.pdf_url?"Replace PDF":"+ Upload PDF")}
+            </button>
+            {sc.pdf_url&&<button style={{...S.btnDanger,...S.btnSm}} onClick={()=>removeScenarioPDF(sc.id)}>Remove PDF</button>}
+            <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>deleteScenario(sc.id)}>Delete</button>
+          </div>
+        )}
+      </div>
+
+      {/* Description text */}
+      {sc.description&&(
+        <div style={{fontSize:13,color:"#444",lineHeight:1.7,marginBottom:sc.pdf_url?14:0,
+          padding:"10px 14px",background:"#f9f8f6",borderRadius:8,whiteSpace:"pre-wrap"}}>
+          {sc.description}
+        </div>
+      )}
+
+      {/* PDF viewer — inline, full width */}
+      {sc.pdf_url&&(
+        <div style={{marginTop:sc.description?12:0,borderRadius:8,overflow:"hidden",border:"1px solid #e0ddd8"}}>
+          <iframe
+            src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0"}
+            style={{width:"100%",height:600,border:"none",display:"block"}}
+            title={`Scenario ${sc.number} PDF`}
+          />
+          <div style={{padding:"8px 12px",background:"#f4f3f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <span style={{fontSize:11,color:"#999"}}>Scenario {sc.number} — {sc.title}</span>
+            <a href={sc.pdf_url} target="_blank" rel="noreferrer"
+              style={{fontSize:12,color:"#185FA5",textDecoration:"none",fontWeight:600}}>
+              Open Full Screen ↗
+            </a>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ── Admin Tab ─────────────────────────────────────────────
