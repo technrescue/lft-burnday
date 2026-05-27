@@ -172,7 +172,7 @@ export default function App() {
   const [scenarios,setScenarios] = useState([]);
   const [showDraftModal,setShowDraftModal] = useState(false);
   const [showSaveDraft,setShowSaveDraft] = useState(false);
-  const [draftName,setDraftName] = useState("");
+  const [draftName,setDraftName] = useState(burnDayTitle||"");
 
   const saveTimer = useRef(null);
 
@@ -429,12 +429,12 @@ export default function App() {
   const startNew = async () => {
     if(!window.confirm("Clear all evolutions and start fresh? Rosters will not be affected.")) return;
     clearTimeout(saveTimer.current);
-    // delete all evolutions for current burn day
-    if(burnDay) await sb.from("evolutions").delete().eq("burn_day_id",burnDay.id);
-    // create fresh evo 01
-    const {data:evo} = await sb.from("evolutions").insert({burn_day_id:burnDay.id,...mkEvoData(1)}).select().single();
-    setEvolutions([evo]); setCurrentEvoIdx(0);
-    showToast("Started fresh — all evolutions cleared");
+    // archive current burn day and create a brand new one
+    if(burnDay) await sb.from("burn_days").update({status:"inactive"}).eq("id",burnDay.id);
+    const {data:newBD} = await sb.from("burn_days").insert({date:new Date().toISOString().split("T")[0],status:"active",title:""}).select().single();
+    const {data:evo} = await sb.from("evolutions").insert({burn_day_id:newBD.id,...mkEvoData(1)}).select().single();
+    setBurnDay(newBD); setBurnDayTitle(""); setEvolutions([evo]); setCurrentEvoIdx(0);
+    showToast("Started fresh — new burn day created");
   };
 
   // ── Save Draft ───────────────────────────────────────────
@@ -446,7 +446,7 @@ export default function App() {
     const {data:evos} = await sb.from("evolutions").select("*").eq("burn_day_id",burnDay.id).order("evo_number");
     await sb.from("drafts").insert({
       name:name.trim(),
-      burn_day:{...burnDay},
+      burn_day:{...burnDay,title:burnDayTitle},
       evolutions:evos||[],
     });
     const {data:dR} = await sb.from("drafts").select("*").order("updated_at",{ascending:false});
@@ -472,6 +472,7 @@ export default function App() {
     }
     // load the draft evolutions into state
     setBurnDay(draft.burn_day);
+    setBurnDayTitle(draft.burn_day?.title||draft.name||"");
     setEvolutions(draft.evolutions||[]);
     setCurrentEvoIdx(0);
     setShowDraftModal(false);
@@ -750,7 +751,7 @@ export default function App() {
           </span>
           <button style={S.btn} onClick={()=>{setScreen("pin");setRole(null);}}>Lock</button>
           {activeTab==="evolutions"&&<>
-            <button style={{...S.btn}} onClick={()=>setShowSaveDraft(true)}>Save Draft</button>
+            <button style={{...S.btn}} onClick={()=>{setDraftName(burnDayTitle||"");setShowSaveDraft(true);}}>Save Draft</button>
             <button style={{...S.btn}} onClick={()=>setShowDraftModal(true)}>Open Draft</button>
             <button style={{...S.btn}} onClick={startNew}>Start New</button>
             <button style={S.btnSuccess} onClick={finishBurnDay}>Finish Burn Day →</button>
