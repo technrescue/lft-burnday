@@ -166,22 +166,28 @@ export default function App() {
   const [currentEvoIdx,setCurrentEvoIdx] = useState(0);
   const [history,setHistory] = useState([]);
   const [historyEvos,setHistoryEvos] = useState({});
+  const [drafts,setDrafts] = useState([]);
+  const [showDraftModal,setShowDraftModal] = useState(false);
+  const [showSaveDraft,setShowSaveDraft] = useState(false);
+  const [draftName,setDraftName] = useState("");
 
   const saveTimer = useRef(null);
 
   const loadAll = useCallback(async (r) => {
     setLoading(true);
-    const [iR,sR,fR,tR,bdR] = await Promise.all([
+    const [iR,sR,fR,tR,bdR,dR] = await Promise.all([
       sb.from("instructors").select("*").order("name"),
       sb.from("students").select("*").order("name"),
       sb.from("fillins").select("*").order("name"),
       sb.from("saved_teams").select("*").order("name"),
       sb.from("burn_days").select("*").eq("status","active").order("created_at",{ascending:false}).limit(1),
+      sb.from("drafts").select("*").order("updated_at",{ascending:false}),
     ]);
     setInstructors(iR.data||[]);
     setStudents(sR.data||[]);
     setFillins(fR.data||[]);
     setSavedTeams((tR.data||[]).map(t=>({...t,members:t.members||[]})));
+    setDrafts(dR.data||[]);
 
     let bd = bdR.data&&bdR.data[0];
     if(!bd){
@@ -360,6 +366,66 @@ export default function App() {
     const members = team.members.filter(m=>m.name!==name);
     await sb.from("saved_teams").update({members}).eq("id",teamId);
     setSavedTeams(prev=>prev.map(t=>t.id===teamId?{...t,members}:t));
+  };
+
+  // ── Start New ───────────────────────────────────────────
+  const startNew = async () => {
+    if(!window.confirm("Clear all evolutions and start fresh? Rosters will not be affected.")) return;
+    clearTimeout(saveTimer.current);
+    // delete all evolutions for current burn day
+    if(burnDay) await sb.from("evolutions").delete().eq("burn_day_id",burnDay.id);
+    // create fresh evo 01
+    const {data:evo} = await sb.from("evolutions").insert({burn_day_id:burnDay.id,...mkEvoData(1)}).select().single();
+    setEvolutions([evo]); setCurrentEvoIdx(0);
+    showToast("Started fresh — all evolutions cleared");
+  };
+
+  // ── Save Draft ───────────────────────────────────────────
+  const saveDraft = async (name) => {
+    if(!name.trim()){showToast("Enter a draft name");return;}
+    clearTimeout(saveTimer.current);
+    await saveEvo(evolutions,currentEvoIdx);
+    // fetch latest evolutions from db
+    const {data:evos} = await sb.from("evolutions").select("*").eq("burn_day_id",burnDay.id).order("evo_number");
+    await sb.from("drafts").insert({
+      name:name.trim(),
+      burn_day:{...burnDay},
+      evolutions:evos||[],
+    });
+    const {data:dR} = await sb.from("drafts").select("*").order("updated_at",{ascending:false});
+    setDrafts(dR||[]);
+    setShowSaveDraft(false); setDraftName("");
+    showToast("Draft saved: "+name.trim());
+  };
+
+  // ── Open Draft ───────────────────────────────────────────
+  const openDraft = async (draft) => {
+    // check if current has data worth saving
+    const hasData = evolutions.some(e=>
+      Object.values(e.positions||{}).some(v=>v) ||
+      Object.values(e.checklist||{}).some(v=>v) ||
+      Object.values(e.timestamps||{}).some(v=>v)
+    );
+    if(hasData){
+      const save = window.confirm("Save current work as a draft before opening this one?");
+      if(save){
+        const nm = window.prompt("Name for current draft:","Draft "+new Date().toLocaleTimeString());
+        if(nm) await saveDraft(nm);
+      }
+    }
+    // load the draft evolutions into state
+    setBurnDay(draft.burn_day);
+    setEvolutions(draft.evolutions||[]);
+    setCurrentEvoIdx(0);
+    setShowDraftModal(false);
+    showToast("Draft loaded: "+draft.name);
+  };
+
+  const deleteDraft = async (id) => {
+    if(!window.confirm("Delete this draft?")) return;
+    await sb.from("drafts").delete().eq("id",id);
+    setDrafts(prev=>prev.filter(d=>d.id!==id));
+    showToast("Draft deleted");
   };
 
   // ── Finish Burn Day ─────────────────────────────────────
@@ -615,7 +681,12 @@ export default function App() {
             {role==="admin"?"Admin":"Standard"}
           </span>
           <button style={S.btn} onClick={()=>{setScreen("pin");setRole(null);}}>Lock</button>
-          {activeTab==="evolutions"&&<button style={S.btnSuccess} onClick={finishBurnDay}>Finish Burn Day →</button>}
+          {activeTab==="evolutions"&&<>
+            <button style={{...S.btn}} onClick={()=>setShowSaveDraft(true)}>Save Draft</button>
+            <button style={{...S.btn}} onClick={()=>setShowDraftModal(true)}>Open Draft</button>
+            <button style={{...S.btn}} onClick={startNew}>Start New</button>
+            <button style={S.btnSuccess} onClick={finishBurnDay}>Finish Burn Day →</button>
+          </>}
         </div>
       </div>
 
@@ -652,6 +723,50 @@ export default function App() {
           config={config} setConfig={setConfig} showToast={showToast}
         />}
       </div>
+    {/* Save Draft Modal */}
+      {showSaveDraft&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{background:"#fff",borderRadius:12,padding:32,width:340,boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
+            <h2 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Save Draft</h2>
+            <label style={S.lbl}>Draft Name</label>
+            <input style={{...S.input,marginTop:6,marginBottom:16}} type="text"
+              placeholder="e.g. Morning Session" autoFocus
+              value={draftName} onChange={e=>setDraftName(e.target.value)}
+              onKeyDown={e=>e.key==="Enter"&&saveDraft(draftName)}/>
+            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+              <button style={S.btn} onClick={()=>{setShowSaveDraft(false);setDraftName("");}}>Cancel</button>
+              <button style={S.btnPrimary} onClick={()=>saveDraft(draftName)}>Save Draft</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Open Draft Modal */}
+      {showDraftModal&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}}>
+          <div style={{background:"#fff",borderRadius:12,padding:32,width:480,maxHeight:"70vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
+            <h2 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Open Draft</h2>
+            {!drafts.length&&<p style={{color:"#999",fontSize:13}}>No drafts saved yet.</p>}
+            {drafts.map(d=>(
+              <div key={d.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 0",borderBottom:"1px solid #e0ddd8"}}>
+                <div>
+                  <div style={{fontWeight:600,fontSize:14}}>{d.name}</div>
+                  <div style={{fontSize:11,color:"#999",marginTop:2}}>
+                    {d.evolutions?.length||0} evolution(s) · Saved {new Date(d.updated_at).toLocaleString()}
+                  </div>
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button style={S.btnPrimary} onClick={()=>openDraft(d)}>Open</button>
+                  <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>deleteDraft(d.id)}>Delete</button>
+                </div>
+              </div>
+            ))}
+            <div style={{marginTop:16,textAlign:"right"}}>
+              <button style={S.btn} onClick={()=>setShowDraftModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
