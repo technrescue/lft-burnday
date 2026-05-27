@@ -833,7 +833,7 @@ export default function App() {
                 </div>
                 <div style={{display:"flex",gap:8}}>
                   <button style={S.btnPrimary} onClick={()=>openDraft(d)}>Open</button>
-                  <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>deleteDraft(d.id)}>Delete</button>
+                  <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Delete this draft?"))deleteDraft(d.id);}}>Delete</button>
                 </div>
               </div>
             ))}
@@ -1074,7 +1074,7 @@ function InstructorRoster({instructors,addInstructor,removeInstructor}) {
         <td className="roster-td">{i.name}</td>
         <td className="roster-td">{i.odps}</td>
         <td className="roster-td"><span style={S.tag("instructor")}>{i.name}</span></td>
-        <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>removeInstructor(i.id)}>Remove</button></td>
+        <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove "+i.name+" from instructors?"))removeInstructor(i.id);}}>Remove</button></td>
       </tr>)}</tbody>
     </table>
   </div>;
@@ -1093,7 +1093,7 @@ function StudentRoster({students,addStudent,removeStudent}) {
       <tbody>{students.map(s=><tr key={s.id} className="hover-row">
         <td className="roster-td">{s.name}</td>
         <td className="roster-td"><span style={S.tag("student")}>{s.name}</span></td>
-        <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>removeStudent(s.id)}>Remove</button></td>
+        <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove "+s.name+" from students?"))removeStudent(s.id);}}>Remove</button></td>
       </tr>)}</tbody>
     </table>
   </div>;
@@ -1113,7 +1113,7 @@ function FillinRoster({fillins,addFillin,removeFillin}) {
       <tbody>{fillins.map(s=><tr key={s.id} className="hover-row">
         <td className="roster-td">{s.name}</td>
         <td className="roster-td"><span style={S.tag("fillin")}>{s.name}</span></td>
-        <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>removeFillin(s.id)}>Remove</button></td>
+        <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove "+s.name+" from fill-ins?"))removeFillin(s.id);}}>Remove</button></td>
       </tr>)}</tbody>
     </table>
   </div>;
@@ -1149,12 +1149,12 @@ function TeamBuilderCard({team,allStudents,addMemberToTeam,removeMemberFromTeam,
   return <div style={{border:"1px solid #e0ddd8",borderRadius:8,overflow:"hidden",marginBottom:10}}>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 12px",background:"#f4f3f0",borderBottom:"1px solid #e0ddd8"}}>
       <strong style={{fontSize:13}}>{team.name}</strong>
-      <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>removeSavedTeam(team.id)}>Delete Team</button>
+      <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Delete team "+team.name+"?"))removeSavedTeam(team.id);}}>Delete Team</button>
     </div>
     <div style={{padding:"10px 12px",display:"flex",flexWrap:"wrap",gap:6,minHeight:40}}>
       {team.members.length===0&&<span style={{fontSize:12,color:"#999"}}>No members yet — click Add Members</span>}
       {team.members.map(m=>(
-        <span key={m.name} style={{...S.tag(m.type),cursor:"pointer"}} title="Click to remove" onClick={()=>removeMemberFromTeam(team.id,m.name)}>
+        <span key={m.name} style={{...S.tag(m.type),cursor:"pointer"}} title="Click to remove" onClick={()=>{if(window.confirm("Remove "+m.name+" from team?"))removeMemberFromTeam(team.id,m.name);}}>
           {m.name} ✕
         </span>
       ))}
@@ -1386,8 +1386,8 @@ function ScenarioCard({sc,role,deleteScenario,uploadScenarioPDF,removeScenarioPD
         <div style={{display:"flex",gap:6,flexShrink:0,flexWrap:"wrap",justifyContent:"flex-end"}}>
           {sc.pdf_url&&<button style={{...S.btnPrimary,...S.btnSm}} onClick={onView}>View PDF</button>}
           {role==="admin"&&<>
-            {sc.pdf_url&&<button style={{...S.btnDanger,...S.btnSm}} onClick={()=>removeScenarioPDF(sc.id)}>Remove PDF</button>}
-            <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>deleteScenario(sc.id)}>Delete</button>
+            {sc.pdf_url&&<button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove PDF from scenario "+sc.number+"?"))removeScenarioPDF(sc.id);}}>Remove PDF</button>}
+            <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Delete scenario "+sc.number+" — "+sc.title+"?"))deleteScenario(sc.id);}}>Delete</button>
           </>}
         </div>
       </div>
