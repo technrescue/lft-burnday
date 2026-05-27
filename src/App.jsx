@@ -771,10 +771,10 @@ export default function App() {
     {/* Footer */}
       <div style={{background:"#111",borderTop:"1px solid #222",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
         <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:56,height:56,objectFit:"contain"}}/>
+          <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:70,height:70,objectFit:"contain"}}/>
           <div>
-            <div style={{color:"#fff",fontSize:18,fontWeight:700,letterSpacing:"0.05em"}}>TECH N RESCUE INNOVATIONS</div>
-            <div style={{color:"#666",fontSize:15,letterSpacing:"0.08em"}}>A TECH N RESCUE INNOVATIONS PRODUCT</div>
+            <div style={{color:"#fff",fontSize:23,fontWeight:700,letterSpacing:"0.05em"}}>TECH N RESCUE INNOVATIONS</div>
+            <div style={{color:"#666",fontSize:19,letterSpacing:"0.08em"}}>A TECH N RESCUE INNOVATIONS PRODUCT</div>
           </div>
         </div>
         <div style={{color:"#444",fontSize:10}}>Live Fire Training — Burn Day Manager</div>
