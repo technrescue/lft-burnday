@@ -772,10 +772,7 @@ export default function App() {
     {/* Footer */}
       <div style={{background:"#000000",borderTop:"1px solid #111",padding:"14px 20px",display:"flex",alignItems:"center",gap:12}}>
         <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:95,height:95,objectFit:"contain"}}/>
-        <div>
-          <div style={{color:"#fff",fontSize:23,fontWeight:700,letterSpacing:"0.05em"}}>TECH N RESCUE INNOVATIONS</div>
-          <div style={{color:"#666",fontSize:19,letterSpacing:"0.08em"}}>A TECH N RESCUE INNOVATIONS PRODUCT</div>
-        </div>
+        <div style={{color:"#666",fontSize:19,letterSpacing:"0.08em"}}>A TECH N RESCUE INNOVATIONS PRODUCT</div>
       </div>
 
     {/* Save Draft Modal */}
