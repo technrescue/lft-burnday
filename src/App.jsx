@@ -1298,34 +1298,61 @@ function ScenariosTab({scenarios,role,addScenario,deleteScenario,uploadScenarioP
       </div>
     )}
 
-    {/* PDF Gallery strip — click to open lightbox */}
+    {/* PDF Gallery — full page cards, horizontal scroll */}
     {withPDFs.length>0&&(
-      <div style={S.card}>
+      <div style={{...S.card,padding:"14px 16px"}}>
         <div style={{...S.secTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-          <span>Scenario PDFs — Click to View</span>
-          <button style={{...S.btnPrimary,...S.btnSm}} onClick={()=>setLightbox(0)}>
-            ▶ Slideshow View
-          </button>
+          <span>Scenario PDFs — Scroll to Browse</span>
+          <button style={{...S.btnPrimary,...S.btnSm}} onClick={()=>setLightbox(0)}>▶ Fullscreen</button>
         </div>
-        <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8,scrollSnapType:"x mandatory"}}>
+        {/* Horizontal scroll strip — each card shows full PDF page */}
+        <div style={{display:"flex",gap:14,overflowX:"auto",scrollSnapType:"x mandatory",
+          paddingBottom:10,WebkitOverflowScrolling:"touch"}}>
           {withPDFs.map((sc,i)=>(
             <div key={sc.id} onClick={()=>setLightbox(i)}
-              style={{flexShrink:0,width:180,scrollSnapAlign:"start",cursor:"pointer",
-                border:"2px solid #e0ddd8",borderRadius:8,overflow:"hidden",
-                transition:"border-color 0.15s",":hover":{borderColor:"#A32D2D"}}}>
-              <div style={{background:"#1a1a1a",color:"#fff",padding:"5px 10px",
-                fontSize:11,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
-                <span>#{sc.number}</span>
-                <span style={{fontWeight:400,opacity:0.7,overflow:"hidden",textOverflow:"ellipsis",
-                  whiteSpace:"nowrap",maxWidth:90}}>{sc.title}</span>
+              style={{flexShrink:0,
+                width:"min(85vw,360px)",
+                scrollSnapAlign:"start",cursor:"pointer",
+                border:"2px solid #e0ddd8",borderRadius:10,overflow:"hidden",
+                boxShadow:"0 2px 8px rgba(0,0,0,0.08)"}}>
+              {/* Card header */}
+              <div style={{background:"#1a1a1a",color:"#fff",padding:"8px 12px",
+                display:"flex",alignItems:"center",gap:10}}>
+                <span style={{background:"#A32D2D",color:"#fff",fontWeight:700,fontSize:14,
+                  padding:"2px 10px",borderRadius:5,flexShrink:0}}>
+                  #{sc.number}
+                </span>
+                <span style={{fontWeight:600,fontSize:13,overflow:"hidden",
+                  textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                  {sc.title}
+                </span>
               </div>
-              <iframe src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0"}
-                style={{width:"100%",height:220,border:"none",display:"block",pointerEvents:"none"}}
-                title={`Scenario ${sc.number}`}/>
-              <div style={{background:"#f4f3f0",padding:"4px 8px",fontSize:10,color:"#666",textAlign:"center"}}>
-                Tap to open
+              {/* Full PDF page — aspect ratio matches letter page */}
+              <div style={{position:"relative",width:"100%",
+                paddingBottom:"129%",
+                background:"#f0f0f0",overflow:"hidden"}}>
+                <iframe
+                  src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit"}
+                  style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",
+                    border:"none",display:"block",pointerEvents:"none"}}
+                  title={`Scenario ${sc.number}`}
+                />
+              </div>
+              {/* Footer tap hint */}
+              <div style={{background:"#f4f3f0",padding:"6px 12px",
+                display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <span style={{fontSize:11,color:"#999"}}>Tap to open fullscreen</span>
+                <span style={{fontSize:11,color:"#A32D2D",fontWeight:600}}>{i+1}/{withPDFs.length}</span>
               </div>
             </div>
+          ))}
+        </div>
+        {/* Dot indicators */}
+        <div style={{display:"flex",justifyContent:"center",gap:6,marginTop:8}}>
+          {withPDFs.map((_,i)=>(
+            <div key={i} onClick={()=>setLightbox(i)}
+              style={{width:8,height:8,borderRadius:"50%",cursor:"pointer",
+                background:i===0?"#1a1a1a":"#d0cdc8"}}/>
           ))}
         </div>
       </div>
