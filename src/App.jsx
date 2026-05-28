@@ -1327,13 +1327,14 @@ function ScenariosTab({scenarios,role,addScenario,deleteScenario,uploadScenarioP
                   {sc.title}
                 </span>
               </div>
-              {/* Full PDF page — aspect ratio matches letter page */}
-              <div style={{position:"relative",width:"100%",
-                paddingBottom:"129%",
-                background:"#f0f0f0",overflow:"hidden"}}>
+              {/* Full PDF — scaled down to fit card, no cropping */}
+              <div style={{position:"relative",width:"100%",paddingBottom:"129%",
+                background:"#f5f5f5",overflow:"hidden"}}>
                 <iframe
-                  src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0&view=Fit&zoom=page-fit"}
-                  style={{position:"absolute",top:0,left:0,width:"100%",height:"100%",
+                  src={sc.pdf_url+"#toolbar=0&navpanes=0&scrollbar=0&zoom=50"}
+                  style={{position:"absolute",top:0,left:0,
+                    width:"200%",height:"200%",
+                    transform:"scale(0.5)",transformOrigin:"top left",
                     border:"none",display:"block",pointerEvents:"none"}}
                   title={`Scenario ${sc.number}`}
                 />
