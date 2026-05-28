@@ -43,13 +43,13 @@ const mkEvoData = (num) => ({
 const S = {
   app: {fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",fontSize:14,color:"#1a1a1a",background:"#f4f3f0",minHeight:"100vh"},
   clockBar: {background:"#111",padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:200},
-  clockNum: {fontFamily:"'Courier New',monospace",fontSize:30,fontWeight:700,color:"#FFD700",letterSpacing:4},
+  clockNum: {fontFamily:"'Courier New',monospace",fontSize:"clamp(20px,4vw,30px)",fontWeight:700,color:"#FFD700",letterSpacing:4},
   clockLbl: {fontSize:10,color:"#888",textTransform:"uppercase",letterSpacing:"0.1em",marginBottom:2},
-  topbar: {background:"#fff",borderBottom:"1px solid #e0ddd8",padding:"10px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:100},
-  topbarR: {display:"flex",gap:8,alignItems:"center"},
+  topbar: {background:"#fff",borderBottom:"1px solid #e0ddd8",padding:"10px 20px",display:"flex",alignItems:"flex-start",justifyContent:"space-between",position:"sticky",top:0,zIndex:100,flexWrap:"wrap",gap:8},
+  topbarR: {display:"flex",gap:6,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end"},
   tabBar: {display:"flex",background:"#fff",borderBottom:"1px solid #e0ddd8",padding:"0 20px",overflowX:"auto"},
-  content: {padding:20,maxWidth:980,margin:"0 auto"},
-  card: {background:"#fff",border:"1px solid #e0ddd8",borderRadius:12,padding:"16px 20px",marginBottom:14},
+  content: {padding:"16px 12px",maxWidth:980,margin:"0 auto"},
+  card: {background:"#fff",border:"1px solid #e0ddd8",borderRadius:12,padding:"14px 16px",marginBottom:14},
   secTitle: {fontSize:11,fontWeight:700,color:"#666",textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:10,paddingBottom:6,borderBottom:"1px solid #e0ddd8"},
   row: {display:"flex",gap:10,marginBottom:10,flexWrap:"wrap"},
   fg: {display:"flex",flexDirection:"column",gap:4,flex:1,minWidth:120},
@@ -57,13 +57,13 @@ const S = {
   input: {fontFamily:"inherit",fontSize:13,color:"#1a1a1a",background:"#fff",border:"1px solid #c8c5be",borderRadius:8,padding:"7px 10px",width:"100%"},
   select: {fontFamily:"inherit",fontSize:13,color:"#1a1a1a",background:"#fff",border:"1px solid #c8c5be",borderRadius:8,padding:"7px 10px",width:"100%"},
   btn: {padding:"7px 14px",borderRadius:8,fontSize:13,border:"1px solid #c8c5be",background:"#fff",color:"#1a1a1a",cursor:"pointer"},
-  btnPrimary: {padding:"7px 14px",borderRadius:8,fontSize:13,border:"1px solid #1a1a1a",background:"#1a1a1a",color:"#fff",cursor:"pointer"},
-  btnDanger: {padding:"7px 14px",borderRadius:8,fontSize:13,border:"1px solid #A32D2D",background:"#A32D2D",color:"#fff",cursor:"pointer"},
-  btnSuccess: {padding:"7px 14px",borderRadius:8,fontSize:13,border:"1px solid #3B6D11",background:"#3B6D11",color:"#fff",cursor:"pointer"},
+  btnPrimary: {padding:"8px 14px",borderRadius:8,fontSize:13,border:"1px solid #1a1a1a",background:"#1a1a1a",color:"#fff",cursor:"pointer",minHeight:38},
+  btnDanger: {padding:"8px 14px",borderRadius:8,fontSize:13,border:"1px solid #A32D2D",background:"#A32D2D",color:"#fff",cursor:"pointer",minHeight:38},
+  btnSuccess: {padding:"8px 14px",borderRadius:8,fontSize:13,border:"1px solid #3B6D11",background:"#3B6D11",color:"#fff",cursor:"pointer",minHeight:38},
   btnSm: {padding:"4px 10px",fontSize:11},
   teamBox: {background:"#f4f3f0",border:"1px solid #e0ddd8",borderRadius:8,padding:12},
   teamTitle: {fontSize:12,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.07em",color:"#666"},
-  tsBtn: {padding:"6px 12px",border:"1px solid #c8c5be",borderRadius:8,fontSize:11,fontWeight:700,background:"#111",color:"#FFD700",cursor:"pointer",whiteSpace:"nowrap"},
+  tsBtn: {padding:"8px 14px",border:"1px solid #c8c5be",borderRadius:8,fontSize:12,fontWeight:700,background:"#111",color:"#FFD700",cursor:"pointer",whiteSpace:"nowrap",minHeight:40},
   pinCard: {background:"#fff",border:"1px solid #e0ddd8",borderRadius:12,padding:"32px 40px",width:320,textAlign:"center"},
   tag: (type) => {
     const map = {instructor:{bg:"#1a1a1a",color:"#fff"},student:{bg:"#1a1a1a",color:"#fff"},fillin:{bg:"#FFD700",color:"#1a1a1a"},ems:{bg:"#1a4fa8",color:"#fff"}};
@@ -706,14 +706,27 @@ export default function App() {
         *{box-sizing:border-box;margin:0;padding:0}
         select,input{outline:none}
         select:focus,input:focus{box-shadow:0 0 0 2px rgba(24,95,165,0.3)}
+        *{-webkit-tap-highlight-color:transparent}
         .tab-btn{padding:10px 14px;font-size:13px;cursor:pointer;border:none;border-bottom:2px solid transparent;color:#666;background:none;white-space:nowrap;font-family:inherit}
         .tab-btn:hover{color:#1a1a1a}
         .tab-btn.active{color:#1a1a1a;border-bottom-color:#1a1a1a;font-weight:600}
-        .check-item{display:flex;align-items:center;gap:8px;padding:7px 10px;border:1px solid #e0ddd8;border-radius:8px;background:#f4f3f0;cursor:pointer;font-size:12px;user-select:none;transition:background 0.1s,border-color 0.1s}
+        .check-item{display:flex;align-items:center;gap:8px;padding:9px 10px;border:1px solid #e0ddd8;border-radius:8px;background:#f4f3f0;cursor:pointer;font-size:13px;user-select:none;transition:background 0.1s,border-color 0.1s}
         .check-item.checked{background:#EAF3DE;border-color:#639922;color:#3B6D11}
         .hover-row:hover td{background:#f4f3f0}
         .roster-th{font-size:11px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:0.06em;background:#f4f3f0;padding:8px 12px;text-align:left;border-bottom:1px solid #e0ddd8}
         .roster-td{padding:8px 12px;font-size:13px;border-bottom:1px solid #e0ddd8}
+        @media(max-width:768px){
+          .checklist-grid-inner{grid-template-columns:repeat(2,1fr)!important}
+          .teams-grid-inner{grid-template-columns:1fr!important}
+          .positions-row{flex-direction:column!important}
+          .ts-grid-inner{grid-template-columns:1fr!important}
+          .temp-row-inner{flex-wrap:wrap!important}
+        }
+        @media(max-width:480px){
+          .checklist-grid-inner{grid-template-columns:1fr!important}
+          .roster-table{font-size:12px}
+          .roster-th,.roster-td{padding:6px 8px}
+        }
       `}</style>
       <Toast msg={toastMsg}/>
 
@@ -802,7 +815,7 @@ export default function App() {
     {/* Save Draft Modal */}
       {showSaveDraft&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div style={{background:"#fff",borderRadius:12,padding:32,width:340,boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
+          <div style={{background:"#fff",borderRadius:12,padding:"24px 20px",width:"min(340px,95vw)",boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
             <h2 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Save Draft</h2>
             <label style={S.lbl}>Draft Name</label>
             <input style={{...S.input,marginTop:6,marginBottom:16}} type="text"
@@ -820,7 +833,7 @@ export default function App() {
       {/* Open Draft Modal */}
       {showDraftModal&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.5)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center"}}>
-          <div style={{background:"#fff",borderRadius:12,padding:32,width:480,maxHeight:"70vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
+          <div style={{background:"#fff",borderRadius:12,padding:"24px 20px",width:"min(480px,95vw)",maxHeight:"80vh",overflowY:"auto",boxShadow:"0 8px 32px rgba(0,0,0,0.2)"}}>
             <h2 style={{fontSize:16,fontWeight:700,marginBottom:16}}>Open Draft</h2>
             {!drafts.length&&<p style={{color:"#999",fontSize:13}}>No drafts saved yet.</p>}
             {drafts.map(d=>(
@@ -878,7 +891,7 @@ function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStu
 
     {/* Header */}
     <div style={S.card}>
-      <div style={S.row}>
+      <div className="positions-row" style={S.row}>
         <div style={{...S.fg,maxWidth:110}}>
           <label style={S.lbl}>Evolution #</label>
           <input style={{...S.input,background:"#f4f3f0",color:"#999"}} value={evo.evo_number} readOnly/>
@@ -923,7 +936,7 @@ function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStu
     {/* Checklist */}
     <div style={S.card}>
       <div style={S.secTitle}>Go / No-Go Checklist</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:12}}>
+      <div className="checklist-grid-inner" style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6,marginBottom:12}}>
         {CHECKLIST_ITEMS.map(item=>(
           <div key={item} className={`check-item${(evo.checklist||{})[item]?" checked":""}`} onClick={()=>togCheck(item)}>
             <input type="checkbox" checked={!!(evo.checklist||{})[item]} onChange={()=>togCheck(item)}
@@ -944,7 +957,7 @@ function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStu
     {/* Timestamps */}
     <div style={S.card}>
       <div style={S.secTitle}>Timestamps</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
+      <div className="ts-grid-inner" style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:8}}>
         {TS_LABELS.map(label=>{
           const val = (evo.timestamps||{})[label]||"";
           const canNA = TS_NA_LABELS.includes(label);
@@ -973,7 +986,7 @@ function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStu
     {/* Temps */}
     <div style={S.card}>
       <div style={S.secTitle}>Temperatures</div>
-      <div style={{display:"flex",gap:10}}>
+      <div className="temp-row-inner" style={{display:"flex",gap:10}}>
         {TEMP_LABELS.map(t=>(
           <div key={t} style={{flex:1,display:"flex",flexDirection:"column",gap:4}}>
             <label style={S.lbl}>{t} Temp</label>
@@ -986,7 +999,7 @@ function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStu
     {/* Teams */}
     <div style={S.card}>
       <div style={S.secTitle}>Teams</div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>
+      <div className="teams-grid-inner" style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:10}}>
         {TEAM_NAMES.map(team=>{
           const td = (evo.teams||{})[team]||{lfi1:"",lfi2:"",members:["","","",""]};
           return (
