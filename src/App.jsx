@@ -525,8 +525,8 @@ export default function App() {
 
   // ── Open Draft ───────────────────────────────────────────
   const openDraft = async (draft) => {
-    // check if current has data worth saving
-    const hasData = evolutions.some(e=>
+    // check if current has data worth saving — skip if editing archive
+    const hasData = !editingArchive && evolutions.some(e=>
       Object.values(e.positions||{}).some(v=>v) ||
       Object.values(e.checklist||{}).some(v=>v) ||
       Object.values(e.timestamps||{}).some(v=>v)
@@ -581,7 +581,7 @@ export default function App() {
 
   // ── Archive actions ─────────────────────────────────────
   const openArchive = async (bd) => {
-    const hasData = evolutions.some(e=>
+    const hasData = !editingArchive && evolutions.some(e=>
       Object.values(e.positions||{}).some(v=>v)||
       Object.values(e.checklist||{}).some(v=>v)||
       Object.values(e.timestamps||{}).some(v=>v)
@@ -605,9 +605,17 @@ export default function App() {
   };
   const saveArchiveEdits = async () => {
     clearTimeout(saveTimer.current);
-    await saveEvo(evolutions,currentEvoIdx);
+    // save every evolution
+    await Promise.all(evolutions.map(async(evo)=>{
+      if(!evo||!evo.id) return;
+      await sb.from("evolutions").update({
+        scenario:evo.scenario, date:evo.date,
+        positions:evo.positions, checklist:evo.checklist,
+        timestamps:evo.timestamps, temps:evo.temps, teams:evo.teams,
+      }).eq("id",evo.id);
+    }));
     await sb.from("burn_days").update({title:burnDayTitle}).eq("id",burnDay.id);
-    showToast("Archive updated");
+    showToast("Archive updated successfully");
   };
   const deleteArchive = async (bdId) => {
     if(!window.confirm("Permanently delete this archived burn day and all its evolutions?")) return;
