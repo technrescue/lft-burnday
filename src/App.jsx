@@ -653,9 +653,15 @@ export default function App() {
       // ── Title ──
       doc.setFontSize(14);doc.setFont(undefined,"bold");doc.setTextColor(0);
       doc.text("Live Fire Training Worksheet",W/2,y+10,{align:"center"});
-      if(bdTitle){doc.setFontSize(9);doc.setFont(undefined,"normal");doc.text(bdTitle,W/2,y+20,{align:"center"});}
-      doc.setLineWidth(0.75);doc.setDrawColor(0);doc.line(m,y+15,W-m,y+15);
-      y+=24;
+      if(bdTitle){
+        doc.setFontSize(9);doc.setFont(undefined,"normal");doc.setTextColor(60,60,60);
+        doc.text(bdTitle,W/2,y+22,{align:"center"});
+        doc.setLineWidth(0.75);doc.setDrawColor(0);doc.line(m,y+28,W-m,y+28);
+        y+=36;
+      } else {
+        doc.setLineWidth(0.75);doc.setDrawColor(0);doc.line(m,y+15,W-m,y+15);
+        y+=24;
+      }
 
       // ── Evolution # / Scenario # / Date ──
       const hW=usableW/3;
@@ -784,9 +790,12 @@ export default function App() {
           doc.setDrawColor(0);doc.setLineWidth(0.3);doc.rect(bx,ty,tmW,tmLfiH);
           doc.setFont(undefined,"bold");doc.setFontSize(6);doc.setTextColor(80,80,80);
           doc.text("LFI Instructor",bx+2,ty+7);
-          doc.setFont(undefined,"normal");doc.setFontSize(7.5);doc.setTextColor(0);
-          const lfiName=(td[k]||"").replace(/\s*\(\d+\)$/,"").slice(0,22);
-          doc.text(lfiName,bx+2,ty+15);
+          doc.setFont(undefined,"normal");doc.setFontSize(7);doc.setTextColor(0);
+          const lfiRaw=td[k]||"";
+          const lfiName=lfiRaw.replace(/\s*\(\d+\)\s*$/,"").slice(0,22);
+          const lfiOdps=lfiRaw.match(/\((\d+)\)/);
+          doc.text(lfiName,bx+2,ty+13);
+          if(lfiOdps){doc.setFontSize(6);doc.setTextColor(80,80,80);doc.text("ODPS# "+lfiOdps[1],bx+2,ty+19);}
           ty+=tmLfiH;
         });
         // Members
