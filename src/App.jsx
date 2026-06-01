@@ -488,7 +488,7 @@ export default function App() {
     if(burnDay) await sb.from("burn_days").update({status:"inactive"}).eq("id",burnDay.id);
     const {data:newBD} = await sb.from("burn_days").insert({date:new Date().toISOString().split("T")[0],status:"active",title:""}).select().single();
     const {data:evo} = await sb.from("evolutions").insert({burn_day_id:newBD.id,...mkEvoData(1)}).select().single();
-    setBurnDay(newBD); setBurnDayTitle(""); setEvolutions([evo]); setCurrentEvoIdx(0);
+    setBurnDay(newBD); setBurnDayTitle(""); setEvolutions([evo]); setCurrentEvoIdx(0); setCurrentDraftId(null); setEditingArchive(false);
     showToast("Started fresh — new burn day created");
   };
 
@@ -497,17 +497,28 @@ export default function App() {
     if(!name.trim()){showToast("Enter a draft name");return;}
     clearTimeout(saveTimer.current);
     await saveEvo(evolutions,currentEvoIdx);
-    // fetch latest evolutions from db
     const {data:evos} = await sb.from("evolutions").select("*").eq("burn_day_id",burnDay.id).order("evo_number");
-    await sb.from("drafts").insert({
-      name:name.trim(),
-      burn_day:{...burnDay,title:burnDayTitle},
-      evolutions:evos||[],
-    });
+    if(currentDraftId){
+      // update existing draft
+      await sb.from("drafts").update({
+        name:name.trim(),
+        burn_day:{...burnDay,title:burnDayTitle},
+        evolutions:evos||[],
+      }).eq("id",currentDraftId);
+      showToast("Draft updated: "+name.trim());
+    } else {
+      // create new draft
+      const {data:newDraft} = await sb.from("drafts").insert({
+        name:name.trim(),
+        burn_day:{...burnDay,title:burnDayTitle},
+        evolutions:evos||[],
+      }).select().single();
+      setCurrentDraftId(newDraft.id);
+      showToast("Draft saved: "+name.trim());
+    }
     const {data:dR} = await sb.from("drafts").select("*").order("updated_at",{ascending:false});
     setDrafts(dR||[]);
     setShowSaveDraft(false); setDraftName("");
-    showToast("Draft saved: "+name.trim());
   };
 
   // ── Open Draft ───────────────────────────────────────────
@@ -530,6 +541,8 @@ export default function App() {
     setBurnDayTitle(draft.burn_day?.title||draft.name||"");
     setEvolutions(draft.evolutions||[]);
     setCurrentEvoIdx(0);
+    setCurrentDraftId(draft.id);
+    setEditingArchive(false);
     setShowDraftModal(false);
     showToast("Draft loaded: "+draft.name);
   };
@@ -562,6 +575,45 @@ export default function App() {
       const stored=localStorage.getItem("presentInstructors");
       if(stored) setPresentInstructors(new Set(JSON.parse(stored)));
     }catch(e){} setEvolutions([evo]); setCurrentEvoIdx(0); setActiveTab("evolutions");
+  };
+
+  // ── Archive actions ─────────────────────────────────────
+  const openArchive = async (bd) => {
+    const hasData = evolutions.some(e=>
+      Object.values(e.positions||{}).some(v=>v)||
+      Object.values(e.checklist||{}).some(v=>v)||
+      Object.values(e.timestamps||{}).some(v=>v)
+    );
+    if(hasData){
+      const save = window.confirm("Save current work as a draft before opening this archived burn day?");
+      if(save){
+        const nm = window.prompt("Name for current draft:",burnDayTitle||"Draft "+new Date().toLocaleTimeString());
+        if(nm) await saveDraft(nm);
+      }
+    }
+    await loadHistEvos(bd.id);
+    setBurnDay(bd);
+    setBurnDayTitle(bd.title||"");
+    setEvolutions(historyEvos[bd.id]||[]);
+    setCurrentEvoIdx(0);
+    setCurrentDraftId(null);
+    setEditingArchive(true);
+    setActiveTab("evolutions");
+    showToast("Editing archived burn day: "+(bd.title||bd.date));
+  };
+  const saveArchiveEdits = async () => {
+    clearTimeout(saveTimer.current);
+    await saveEvo(evolutions,currentEvoIdx);
+    await sb.from("burn_days").update({title:burnDayTitle}).eq("id",burnDay.id);
+    showToast("Archive updated");
+  };
+  const deleteArchive = async (bdId) => {
+    if(!window.confirm("Permanently delete this archived burn day and all its evolutions?")) return;
+    await sb.from("evolutions").delete().eq("burn_day_id",bdId);
+    await sb.from("burn_days").delete().eq("id",bdId);
+    setHistory(prev=>prev.filter(b=>b.id!==bdId));
+    setHistoryEvos(prev=>{const c={...prev};delete c[bdId];return c;});
+    showToast("Burn day deleted");
   };
 
   // ── History ──────────────────────────────────────────────
@@ -823,8 +875,11 @@ export default function App() {
             {role==="admin"?"Admin":"Standard"}
           </span>
           <button style={S.btn} onClick={()=>{setScreen("pin");setRole(null);}}>Lock</button>
+          {editingArchive&&<span style={{fontSize:11,fontWeight:700,background:"#FFD700",color:"#1a1a1a",padding:"3px 10px",borderRadius:20}}>Editing Archive</span>}
           {activeTab==="evolutions"&&<>
-            <button style={{...S.btn}} onClick={()=>{setDraftName(burnDayTitle||"");setShowSaveDraft(true);}}>Save Draft</button>
+            {editingArchive
+              ? <button style={S.btnPrimary} onClick={saveArchiveEdits}>Save Changes</button>
+              : <button style={{...S.btn}} onClick={()=>{setDraftName(burnDayTitle||"");setShowSaveDraft(true);}}>Save Draft</button>}
             <button style={{...S.btn}} onClick={()=>setShowDraftModal(true)}>Open Draft</button>
             <button style={{...S.btn}} onClick={startNew}>Start New</button>
             <button style={S.btnSuccess} onClick={finishBurnDay}>Finish Burn Day →</button>
@@ -860,7 +915,7 @@ export default function App() {
           addMemberToTeam={addMemberToTeam} removeMemberFromTeam={removeMemberFromTeam}
         />}
         {activeTab==="scenarios"&&<ScenariosTab scenarios={scenarios} role={role} addScenario={addScenario} deleteScenario={deleteScenario} uploadScenarioPDF={uploadScenarioPDF} removeScenarioPDF={removeScenarioPDF}/>}
-        {activeTab==="admin"&&<AdminTab
+        {activeTab==="admin"&&<AdminTab openArchive={openArchive} deleteArchive={deleteArchive} role={role}
           history={history} historyEvos={historyEvos}
           toggleHistEvos={toggleHistEvos} exportHistory={exportHistory}
           config={config} setConfig={setConfig} showToast={showToast}
@@ -1128,6 +1183,62 @@ function TempInput({label,value,onUpdate,onFinalize}) {
   );
 }
 
+
+// ── Editable Roster Rows ──────────────────────────────────
+function EditableInstructorRow({i,removeInstructor}) {
+  const [editing,setEditing] = useState(false);
+  const [name,setName] = useState(i.name);
+  const [odps,setOdps] = useState(i.odps);
+  const save = async () => {
+    await sb.from("instructors").update({name,odps}).eq("id",i.id);
+    setEditing(false);
+    // reload page data — simple approach
+    window.location.reload();
+  };
+  if(editing) return <tr className="hover-row">
+    <td className="roster-td"><input style={{...S.input,padding:"4px 8px"}} value={name} onChange={e=>setName(e.target.value)}/></td>
+    <td className="roster-td"><input style={{...S.input,padding:"4px 8px",maxWidth:120}} value={odps} onChange={e=>setOdps(e.target.value)}/></td>
+    <td className="roster-td" style={{display:"flex",gap:6}}>
+      <button style={{...S.btnPrimary,...S.btnSm}} onClick={save}>Save</button>
+      <button style={{...S.btn,...S.btnSm}} onClick={()=>{setEditing(false);setName(i.name);setOdps(i.odps);}}>Cancel</button>
+    </td>
+  </tr>;
+  return <tr className="hover-row">
+    <td className="roster-td">{i.name}</td>
+    <td className="roster-td">{i.odps}</td>
+    <td className="roster-td" style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+      <button style={{...S.btn,...S.btnSm}} onClick={()=>setEditing(true)}>Edit</button>
+      <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove "+i.name+"?"))removeInstructor(i.id);}}>Remove</button>
+    </td>
+  </tr>;
+}
+
+function EditableStudentRow({s,removeStudent,type}) {
+  const [editing,setEditing] = useState(false);
+  const [name,setName] = useState(s.name);
+  const table = type==="fillin"?"fillins":"students";
+  const save = async () => {
+    await sb.from(table).update({name}).eq("id",s.id);
+    setEditing(false);
+    window.location.reload();
+  };
+  if(editing) return <tr className="hover-row">
+    <td className="roster-td" colSpan={2}><input style={{...S.input,padding:"4px 8px"}} value={name} onChange={e=>setName(e.target.value)}/></td>
+    <td className="roster-td" style={{display:"flex",gap:6}}>
+      <button style={{...S.btnPrimary,...S.btnSm}} onClick={save}>Save</button>
+      <button style={{...S.btn,...S.btnSm}} onClick={()=>{setEditing(false);setName(s.name);}}>Cancel</button>
+    </td>
+  </tr>;
+  return <tr className="hover-row">
+    <td className="roster-td">{s.name}</td>
+    <td className="roster-td"><span style={S.tag(type)}>{s.name}</span></td>
+    <td className="roster-td" style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+      <button style={{...S.btn,...S.btnSm}} onClick={()=>setEditing(true)}>Edit</button>
+      <button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove "+s.name+"?"))removeStudent(s.id);}}>Remove</button>
+    </td>
+  </tr>;
+}
+
 // ── Roster Tab ────────────────────────────────────────────
 function RosterTab({rosterTab,setRosterTab,instructors,students,fillins,savedTeams,allStudents,addInstructor,removeInstructor,addStudent,removeStudent,addFillin,removeFillin,createSavedTeam,removeSavedTeam,addMemberToTeam,removeMemberFromTeam,presentInstructors,togglePresent,setAllPresent,clearStudents,clearFillins}) {
   const subtabs = ["instructors","students","fillins","teams"];
@@ -1186,11 +1297,7 @@ function InstructorRoster({instructors,addInstructor,removeInstructor,presentIns
     </div>
     <table style={{width:"100%",borderCollapse:"collapse"}}>
       <thead><tr><th className="roster-th">Name</th><th className="roster-th">ODPS #</th><th className="roster-th"></th></tr></thead>
-      <tbody>{instructors.map(i=><tr key={i.id} className="hover-row">
-        <td className="roster-td">{i.name}</td>
-        <td className="roster-td">{i.odps}</td>
-        <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove "+i.name+" from instructors?"))removeInstructor(i.id);}}>Remove</button></td>
-      </tr>)}</tbody>
+      <tbody>{instructors.map(i=><EditableInstructorRow key={i.id} i={i} removeInstructor={removeInstructor}/>)}</tbody>
     </table>
   </div>;
 }
@@ -1208,11 +1315,7 @@ function StudentRoster({students,addStudent,removeStudent,clearStudents}) {
     </div>
     <table style={{width:"100%",borderCollapse:"collapse"}}>
       <thead><tr><th className="roster-th">Name</th><th className="roster-th">Tag</th><th className="roster-th"></th></tr></thead>
-      <tbody>{students.map(s=><tr key={s.id} className="hover-row">
-        <td className="roster-td">{s.name}</td>
-        <td className="roster-td"><span style={S.tag("student")}>{s.name}</span></td>
-        <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove "+s.name+" from students?"))removeStudent(s.id);}}>Remove</button></td>
-      </tr>)}</tbody>
+      <tbody>{students.map(s=><EditableStudentRow key={s.id} s={s} removeStudent={removeStudent} type="student"/>)}</tbody>
     </table>
   </div>;
 }
@@ -1231,11 +1334,7 @@ function FillinRoster({fillins,addFillin,removeFillin,clearFillins}) {
     </div>
     <table style={{width:"100%",borderCollapse:"collapse"}}>
       <thead><tr><th className="roster-th">Name</th><th className="roster-th">Tag</th><th className="roster-th"></th></tr></thead>
-      <tbody>{fillins.map(s=><tr key={s.id} className="hover-row">
-        <td className="roster-td">{s.name}</td>
-        <td className="roster-td"><span style={S.tag("fillin")}>{s.name}</span></td>
-        <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove "+s.name+" from fill-ins?"))removeFillin(s.id);}}>Remove</button></td>
-      </tr>)}</tbody>
+      <tbody>{fillins.map(s=><EditableStudentRow key={s.id} s={s} removeStudent={removeFillin} type="fillin"/>)}</tbody>
     </table>
   </div>;
 }
@@ -1566,7 +1665,7 @@ function ScenarioCard({sc,role,deleteScenario,uploadScenarioPDF,removeScenarioPD
 }
 
 // ── Admin Tab ─────────────────────────────────────────────
-function AdminTab({history,historyEvos,toggleHistEvos,exportHistory,config,setConfig,showToast}) {
+function AdminTab({history,historyEvos,toggleHistEvos,exportHistory,config,setConfig,showToast,openArchive,deleteArchive,role}) {
   const [stdPin,setStdPin] = useState("");
   const [admPin,setAdmPin] = useState("");
   const savePins = async () => {
@@ -1587,9 +1686,11 @@ function AdminTab({history,historyEvos,toggleHistEvos,exportHistory,config,setCo
               <strong>Burn Day — {bd.title||bd.date}</strong>
               <div style={{fontSize:12,color:"#666",marginTop:2}}>Archived {new Date(bd.archived_at).toLocaleString()}</div>
             </div>
-            <div style={{display:"flex",gap:8}}>
-              <button style={S.btn} onClick={()=>toggleHistEvos(bd.id)}>{historyEvos[bd.id]?"Hide":"View"} Evolutions</button>
+            <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
+              <button style={S.btn} onClick={()=>toggleHistEvos(bd.id)}>{historyEvos[bd.id]?"Hide":"View"}</button>
+{role==="admin"&&<button style={S.btnPrimary} onClick={()=>openArchive(bd)}>Open & Edit</button>}
               <button style={S.btnPrimary} onClick={()=>exportHistory(bd.id,bd.date,bd.title)}>Export PDF</button>
+{role==="admin"&&<button style={{...S.btnDanger,...S.btnSm}} onClick={()=>deleteArchive(bd.id)}>Delete</button>}
             </div>
           </div>
           {historyEvos[bd.id]&&<div style={{padding:"8px 0 8px 20px",background:"#f4f3f0",borderBottom:"1px solid #e0ddd8"}}>
