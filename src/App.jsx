@@ -792,10 +792,10 @@ export default function App() {
           doc.text("LFI Instructor",bx+2,ty+7);
           doc.setFont(undefined,"normal");doc.setFontSize(7);doc.setTextColor(0);
           const lfiRaw=td[k]||"";
-          const lfiName=lfiRaw.replace(/\s*\(\d+\)\s*$/,"").slice(0,22);
+          const lfiName=lfiRaw.replace(/\s*\(\d+\)\s*$/,"").slice(0,18);
           const lfiOdps=lfiRaw.match(/\((\d+)\)/);
-          doc.text(lfiName,bx+2,ty+13);
-          if(lfiOdps){doc.setFontSize(6);doc.setTextColor(80,80,80);doc.text("ODPS# "+lfiOdps[1],bx+2,ty+19);}
+          const lfiDisplay=lfiOdps ? lfiName+"("+lfiOdps[1]+")" : lfiName;
+          doc.text(lfiDisplay.slice(0,26),bx+2,ty+14);
           ty+=tmLfiH;
         });
         // Members
