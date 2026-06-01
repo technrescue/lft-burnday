@@ -163,8 +163,10 @@ export default function App() {
   const [fillins,setFillins] = useState([]);
   const [savedTeams,setSavedTeams] = useState([]);
   const [burnDay,setBurnDay] = useState(null);
-  const [presentInstructors,setPresentInstructors] = useState(new Set());
   const [burnDayTitle,setBurnDayTitle] = useState("");
+  const [currentDraftId,setCurrentDraftId] = useState(null);
+  const [editingArchive,setEditingArchive] = useState(false);
+  const [presentInstructors,setPresentInstructors] = useState(new Set());
   const [evolutions,setEvolutions] = useState([]);
   const [currentEvoIdx,setCurrentEvoIdx] = useState(0);
   const [history,setHistory] = useState([]);
