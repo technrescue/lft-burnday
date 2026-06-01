@@ -841,7 +841,7 @@ export default function App() {
 
       {/* Content */}
       <div style={S.content}>
-        {activeTab==="evolutions"&&<EvoTab scenarios={scenarios} deleteEvolution={deleteEvolution}
+        {activeTab==="evolutions"&&<EvoTab scenarios={scenarios} deleteEvolution={deleteEvolution} presentInstructors={presentInstructors}
           evolutions={evolutions} currentEvoIdx={currentEvoIdx} setCurrentEvoIdx={setCurrentEvoIdx}
           evo={evo} allChecked={allChecked} allStudents={allStudents}
           instructors={instructors} savedTeams={savedTeams}
@@ -921,7 +921,7 @@ export default function App() {
 }
 
 // ── Evolution Tab ─────────────────────────────────────────
-function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStudents,instructors,savedTeams,updEvo,updPos,togCheck,stampTime,updTs,updTemp,finalizeTemp,updTeam,autoFillTeam,addEvolution,scenarios,deleteEvolution}) {
+function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStudents,instructors,savedTeams,updEvo,updPos,togCheck,stampTime,updTs,updTemp,finalizeTemp,updTeam,autoFillTeam,addEvolution,scenarios,deleteEvolution,presentInstructors}) {
   const SCENARIOS = Array.from({length:12},(_,i)=>String(i+1));
   if(!evo) return <div style={{padding:40,textAlign:"center",color:"#999"}}>No evolutions yet.</div>;
   const allChk = allChecked(evo);
