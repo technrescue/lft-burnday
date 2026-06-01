@@ -163,6 +163,7 @@ export default function App() {
   const [fillins,setFillins] = useState([]);
   const [savedTeams,setSavedTeams] = useState([]);
   const [burnDay,setBurnDay] = useState(null);
+  const [presentInstructors,setPresentInstructors] = useState(new Set());
   const [burnDayTitle,setBurnDayTitle] = useState("");
   const [evolutions,setEvolutions] = useState([]);
   const [currentEvoIdx,setCurrentEvoIdx] = useState(0);
@@ -201,6 +202,11 @@ export default function App() {
     }
     setBurnDay(bd);
     setBurnDayTitle(bd.title||"");
+    // restore present instructors from localStorage
+    try{
+      const stored=localStorage.getItem("presentInstructors");
+      if(stored) setPresentInstructors(new Set(JSON.parse(stored)));
+    }catch(e){}
     const eR = await sb.from("evolutions").select("*").eq("burn_day_id",bd.id).order("evo_number");
     let evos = eR.data||[];
     if(!evos.length){
@@ -425,6 +431,55 @@ export default function App() {
     setScenarios(prev=>prev.map(s=>s.id===scenarioId?{...s,pdf_url:""}:s));
   };
 
+  // ── Present Instructors ─────────────────────────────────
+  const togglePresent = (id) => {
+    setPresentInstructors(prev=>{
+      const next = new Set(prev);
+      if(next.has(id)) next.delete(id); else next.add(id);
+      localStorage.setItem("presentInstructors",JSON.stringify([...next]));
+      return next;
+    });
+  };
+  const setAllPresent = (val) => {
+    const next = val ? new Set(instructors.map(i=>i.id)) : new Set();
+    setPresentInstructors(next);
+    localStorage.setItem("presentInstructors",JSON.stringify([...next]));
+  };
+
+  // ── Delete Evolution ─────────────────────────────────────
+  const deleteEvolution = async (idx) => {
+    if(!window.confirm(`Delete Evolution ${evolutions[idx].evo_number}? All other evolutions will be renumbered.`)) return;
+    const evo = evolutions[idx];
+    await sb.from("evolutions").delete().eq("id",evo.id);
+    // renumber remaining
+    const remaining = evolutions.filter((_,i)=>i!==idx);
+    const updated = await Promise.all(remaining.map(async(e,i)=>{
+      const newNum = String(i+1).padStart(2,"0");
+      if(e.evo_number!==newNum){
+        await sb.from("evolutions").update({evo_number:newNum}).eq("id",e.id);
+        return {...e,evo_number:newNum};
+      }
+      return e;
+    }));
+    setEvolutions(updated);
+    setCurrentEvoIdx(Math.min(idx,updated.length-1));
+    showToast("Evolution deleted and renumbered");
+  };
+
+  // ── Clear Student/Fillin Roster ──────────────────────────
+  const clearStudents = async () => {
+    if(!window.confirm("Clear entire student roster? This cannot be undone.")) return;
+    await sb.from("students").delete().neq("id","00000000-0000-0000-0000-000000000000");
+    setStudents([]);
+    showToast("Student roster cleared");
+  };
+  const clearFillins = async () => {
+    if(!window.confirm("Clear entire fill-in roster? This cannot be undone.")) return;
+    await sb.from("fillins").delete().neq("id","00000000-0000-0000-0000-000000000000");
+    setFillins([]);
+    showToast("Fill-in roster cleared");
+  };
+
   // ── Start New ───────────────────────────────────────────
   const startNew = async () => {
     if(!window.confirm("Clear all evolutions and start fresh? Rosters will not be affected.")) return;
@@ -501,7 +556,12 @@ export default function App() {
       setHistory(hR.data||[]);
     }
     setBurnDay(bd);
-    setBurnDayTitle(bd.title||""); setEvolutions([evo]); setCurrentEvoIdx(0); setActiveTab("evolutions");
+    setBurnDayTitle(bd.title||"");
+    // restore present instructors from localStorage
+    try{
+      const stored=localStorage.getItem("presentInstructors");
+      if(stored) setPresentInstructors(new Set(JSON.parse(stored)));
+    }catch(e){} setEvolutions([evo]); setCurrentEvoIdx(0); setActiveTab("evolutions");
   };
 
   // ── History ──────────────────────────────────────────────
@@ -781,7 +841,7 @@ export default function App() {
 
       {/* Content */}
       <div style={S.content}>
-        {activeTab==="evolutions"&&<EvoTab scenarios={scenarios}
+        {activeTab==="evolutions"&&<EvoTab scenarios={scenarios} deleteEvolution={deleteEvolution}
           evolutions={evolutions} currentEvoIdx={currentEvoIdx} setCurrentEvoIdx={setCurrentEvoIdx}
           evo={evo} allChecked={allChecked} allStudents={allStudents}
           instructors={instructors} savedTeams={savedTeams}
@@ -789,7 +849,7 @@ export default function App() {
           stampTime={stampTime} updTs={updTs} updTemp={updTemp} finalizeTemp={finalizeTemp}
           updTeam={updTeam} autoFillTeam={autoFillTeam} addEvolution={addEvolution}
         />}
-        {activeTab==="roster"&&<RosterTab
+        {activeTab==="roster"&&<RosterTab presentInstructors={presentInstructors} togglePresent={togglePresent} setAllPresent={setAllPresent} clearStudents={clearStudents} clearFillins={clearFillins}
           rosterTab={rosterTab} setRosterTab={setRosterTab}
           instructors={instructors} students={students} fillins={fillins} savedTeams={savedTeams}
           allStudents={allStudents}
@@ -861,16 +921,21 @@ export default function App() {
 }
 
 // ── Evolution Tab ─────────────────────────────────────────
-function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStudents,instructors,savedTeams,updEvo,updPos,togCheck,stampTime,updTs,updTemp,finalizeTemp,updTeam,autoFillTeam,addEvolution,scenarios}) {
+function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStudents,instructors,savedTeams,updEvo,updPos,togCheck,stampTime,updTs,updTemp,finalizeTemp,updTeam,autoFillTeam,addEvolution,scenarios,deleteEvolution}) {
   const SCENARIOS = Array.from({length:12},(_,i)=>String(i+1));
   if(!evo) return <div style={{padding:40,textAlign:"center",color:"#999"}}>No evolutions yet.</div>;
   const allChk = allChecked(evo);
   const checkedCount = CHECKLIST_ITEMS.filter(k=>(evo.checklist||{})[k]).length;
 
-  const instrOptions = (selected="") => [
-    <option key="" value="">-- Select --</option>,
-    ...instructors.map(i=><option key={i.id} value={`${i.name} (${i.odps})`} selected={selected===`${i.name} (${i.odps})`}>{i.name} ({i.odps})</option>)
-  ];
+  const instrOptions = (selected="") => {
+    const filtered = presentInstructors.size>0
+      ? instructors.filter(i=>presentInstructors.has(i.id))
+      : instructors;
+    return [
+      <option key="" value="">-- Select --</option>,
+      ...filtered.map(i=><option key={i.id} value={`${i.name} (${i.odps})`} selected={selected===`${i.name} (${i.odps})`}>{i.name} ({i.odps})</option>)
+    ];
+  };
   const memberOptions = (selected="") => [
     <option key="" value="">-- Select --</option>,
     ...allStudents().map(s=><option key={s.id} value={`${s.name}|${s.type}`} selected={selected===`${s.name}|${s.type}`}>{s.name}{s.type==="fillin"?" (Fill-in)":""}</option>)
@@ -880,11 +945,19 @@ function EvoTab({evolutions,currentEvoIdx,setCurrentEvoIdx,evo,allChecked,allStu
     {/* Evo nav */}
     <div style={{display:"flex",gap:8,alignItems:"center",marginBottom:16,flexWrap:"wrap"}}>
       {evolutions.map((e,i)=>(
-        <button key={e.id} onClick={()=>setCurrentEvoIdx(i)}
-          style={{padding:"5px 13px",borderRadius:20,fontSize:12,border:"1px solid #c8c5be",cursor:"pointer",
-            ...(i===currentEvoIdx?{background:"#1a1a1a",color:"#fff",fontWeight:600}:{background:"#fff",color:"#666"})}}>
-          Evo {e.evo_number}
-        </button>
+        <div key={e.id} style={{display:"flex",alignItems:"center",gap:2}}>
+          <button onClick={()=>setCurrentEvoIdx(i)}
+            style={{padding:"5px 13px",borderRadius:"20px 0 0 20px",fontSize:12,border:"1px solid #c8c5be",
+              borderRight:"none",cursor:"pointer",
+              ...(i===currentEvoIdx?{background:"#1a1a1a",color:"#fff",fontWeight:600}:{background:"#fff",color:"#666"})}}>
+            Evo {e.evo_number}
+          </button>
+          {evolutions.length>1&&<button onClick={()=>deleteEvolution(i)}
+            style={{padding:"5px 7px",borderRadius:"0 20px 20px 0",fontSize:11,border:"1px solid #c8c5be",
+              borderLeft:"none",cursor:"pointer",background:"#fff",color:"#A32D2D",fontWeight:700,lineHeight:1}}>
+            ✕
+          </button>}
+        </div>
       ))}
       <button style={S.btn} onClick={addEvolution}>+ Add Evolution</button>
     </div>
@@ -1056,7 +1129,7 @@ function TempInput({label,value,onUpdate,onFinalize}) {
 }
 
 // ── Roster Tab ────────────────────────────────────────────
-function RosterTab({rosterTab,setRosterTab,instructors,students,fillins,savedTeams,allStudents,addInstructor,removeInstructor,addStudent,removeStudent,addFillin,removeFillin,createSavedTeam,removeSavedTeam,addMemberToTeam,removeMemberFromTeam}) {
+function RosterTab({rosterTab,setRosterTab,instructors,students,fillins,savedTeams,allStudents,addInstructor,removeInstructor,addStudent,removeStudent,addFillin,removeFillin,createSavedTeam,removeSavedTeam,addMemberToTeam,removeMemberFromTeam,presentInstructors,togglePresent,setAllPresent,clearStudents,clearFillins}) {
   const subtabs = ["instructors","students","fillins","teams"];
   const subtabLabels = {instructors:"Instructors",students:"Students",fillins:"Fill-Ins",teams:"Teams"};
   return <>
@@ -1065,15 +1138,17 @@ function RosterTab({rosterTab,setRosterTab,instructors,students,fillins,savedTea
         {subtabLabels[t]}
       </button>)}
     </div>
-    {rosterTab==="instructors"&&<InstructorRoster instructors={instructors} addInstructor={addInstructor} removeInstructor={removeInstructor}/>}
-    {rosterTab==="students"&&<StudentRoster students={students} addStudent={addStudent} removeStudent={removeStudent}/>}
-    {rosterTab==="fillins"&&<FillinRoster fillins={fillins} addFillin={addFillin} removeFillin={removeFillin}/>}
+    {rosterTab==="instructors"&&<InstructorRoster instructors={instructors} addInstructor={addInstructor} removeInstructor={removeInstructor} presentInstructors={presentInstructors} togglePresent={togglePresent} setAllPresent={setAllPresent}/>}
+    {rosterTab==="students"&&<StudentRoster students={students} addStudent={addStudent} removeStudent={removeStudent} clearStudents={clearStudents}/>}
+    {rosterTab==="fillins"&&<FillinRoster fillins={fillins} addFillin={addFillin} removeFillin={removeFillin} clearFillins={clearFillins}/>}
     {rosterTab==="teams"&&<TeamBuilder savedTeams={savedTeams} allStudents={allStudents} createSavedTeam={createSavedTeam} removeSavedTeam={removeSavedTeam} addMemberToTeam={addMemberToTeam} removeMemberFromTeam={removeMemberFromTeam}/>}
   </>;
 }
 
-function InstructorRoster({instructors,addInstructor,removeInstructor}) {
+function InstructorRoster({instructors,addInstructor,removeInstructor,presentInstructors,togglePresent,setAllPresent}) {
   const [name,setName] = useState(""); const [odps,setOdps] = useState("");
+  const allChecked = instructors.length>0 && instructors.every(i=>presentInstructors.has(i.id));
+  const someChecked = instructors.some(i=>presentInstructors.has(i.id));
   return <div style={S.card}>
     <div style={S.secTitle}>Instructors</div>
     <div style={{display:"flex",gap:8,marginBottom:14,flexWrap:"wrap"}}>
@@ -1081,22 +1156,52 @@ function InstructorRoster({instructors,addInstructor,removeInstructor}) {
       <input style={{...S.input,maxWidth:140}} placeholder="ODPS #" value={odps} onChange={e=>setOdps(e.target.value)}/>
       <button style={S.btnPrimary} onClick={()=>{addInstructor(name,odps);setName("");setOdps("");}}>+ Add</button>
     </div>
+    {/* Present today controls */}
+    <div style={{background:"#f4f3f0",border:"1px solid #e0ddd8",borderRadius:8,padding:"10px 14px",marginBottom:12}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+        <span style={{fontSize:12,fontWeight:700,color:"#666",textTransform:"uppercase",letterSpacing:"0.06em"}}>
+          Present Today — {presentInstructors.size} of {instructors.length} checked
+        </span>
+        <div style={{display:"flex",gap:8}}>
+          <button style={{...S.btn,...S.btnSm}} onClick={()=>setAllPresent(true)}>Check All</button>
+          <button style={{...S.btn,...S.btnSm}} onClick={()=>setAllPresent(false)}>Uncheck All</button>
+        </div>
+      </div>
+      <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
+        {instructors.map(i=>(
+          <div key={i.id} onClick={()=>togglePresent(i.id)}
+            style={{display:"flex",alignItems:"center",gap:6,padding:"6px 12px",borderRadius:20,cursor:"pointer",
+              border:"1px solid "+(presentInstructors.has(i.id)?"#A32D2D":"#c8c5be"),
+              background:presentInstructors.has(i.id)?"#A32D2D":"#fff",
+              color:presentInstructors.has(i.id)?"#fff":"#666"}}>
+            <input type="checkbox" checked={presentInstructors.has(i.id)} onChange={()=>togglePresent(i.id)}
+              style={{accentColor:"#A32D2D",width:14,height:14}} onClick={e=>e.stopPropagation()}/>
+            <span style={{fontSize:13,fontWeight:600}}>{i.name}</span>
+          </div>
+        ))}
+      </div>
+      {presentInstructors.size===0&&<p style={{fontSize:11,color:"#999",marginTop:6}}>
+        No instructors checked — all will appear in dropdowns. Check present instructors to filter dropdowns.
+      </p>}
+    </div>
     <table style={{width:"100%",borderCollapse:"collapse"}}>
-      <thead><tr><th className="roster-th">Name</th><th className="roster-th">ODPS #</th><th className="roster-th">Tag</th><th className="roster-th"></th></tr></thead>
+      <thead><tr><th className="roster-th">Name</th><th className="roster-th">ODPS #</th><th className="roster-th"></th></tr></thead>
       <tbody>{instructors.map(i=><tr key={i.id} className="hover-row">
         <td className="roster-td">{i.name}</td>
         <td className="roster-td">{i.odps}</td>
-        <td className="roster-td"><span style={S.tag("instructor")}>{i.name}</span></td>
         <td className="roster-td"><button style={{...S.btnDanger,...S.btnSm}} onClick={()=>{if(window.confirm("Remove "+i.name+" from instructors?"))removeInstructor(i.id);}}>Remove</button></td>
       </tr>)}</tbody>
     </table>
   </div>;
 }
 
-function StudentRoster({students,addStudent,removeStudent}) {
+function StudentRoster({students,addStudent,removeStudent,clearStudents}) {
   const [name,setName] = useState("");
   return <div style={S.card}>
-    <div style={S.secTitle}>Students / Crew</div>
+    <div style={{...S.secTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span>Students / Crew</span>
+      <button style={{...S.btnDanger,...S.btnSm}} onClick={clearStudents}>Clear Roster</button>
+    </div>
     <div style={{display:"flex",gap:8,marginBottom:14}}>
       <input style={{...S.input,flex:1}} placeholder="Last, First" value={name} onChange={e=>setName(e.target.value)}/>
       <button style={S.btnPrimary} onClick={()=>{addStudent(name);setName("");}}>+ Add</button>
@@ -1112,10 +1217,13 @@ function StudentRoster({students,addStudent,removeStudent}) {
   </div>;
 }
 
-function FillinRoster({fillins,addFillin,removeFillin}) {
+function FillinRoster({fillins,addFillin,removeFillin,clearFillins}) {
   const [name,setName] = useState("");
   return <div style={S.card}>
-    <div style={S.secTitle}>Fill-In Students</div>
+    <div style={{...S.secTitle,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+      <span>Fill-In Students</span>
+      <button style={{...S.btnDanger,...S.btnSm}} onClick={clearFillins}>Clear Roster</button>
+    </div>
     <p style={{fontSize:12,color:"#666",marginBottom:12}}>Fill-ins appear in yellow on the accountability board and are available in all team dropdowns.</p>
     <div style={{display:"flex",gap:8,marginBottom:14}}>
       <input style={{...S.input,flex:1}} placeholder="Last, First" value={name} onChange={e=>setName(e.target.value)}/>
