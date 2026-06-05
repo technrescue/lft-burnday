@@ -941,9 +941,17 @@ export default function App() {
         />}
       </div>
     {/* Footer */}
-      <div style={{background:"#000000",borderTop:"1px solid #111",padding:"14px 20px",display:"flex",alignItems:"center",gap:12}}>
-        <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:95,height:95,objectFit:"contain"}}/>
-        <div style={{color:"#666",fontSize:19,letterSpacing:"0.08em"}}>A TECH N RESCUE INNOVATIONS PRODUCT</div>
+      <div style={{background:"#000000",borderTop:"1px solid #111",padding:"14px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <img src="/tnr-logo.png" alt="Tech N Rescue Innovations" style={{width:95,height:95,objectFit:"contain"}}/>
+          <div style={{color:"#666",fontSize:19,letterSpacing:"0.08em"}}>A TECH N RESCUE INNOVATIONS PRODUCT</div>
+        </div>
+        <a href="https://nexus.technrescue.org/support" target="_blank" rel="noreferrer"
+          style={{padding:"10px 20px",background:"#A32D2D",color:"#fff",borderRadius:8,
+            fontSize:14,fontWeight:700,textDecoration:"none",letterSpacing:"0.04em",
+            border:"none",display:"inline-block"}}>
+          🎫 Submit Ticket
+        </a>
       </div>
 
     {/* Save Draft Modal */}
